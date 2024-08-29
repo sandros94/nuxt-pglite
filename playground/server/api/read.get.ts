@@ -1,8 +1,15 @@
-export default eventHandler((_event) => {
-  const { pg } = usePGlite({
-    dataDir: './playground/server/database/pglite-db',
-    debug: 1,
+export default eventHandler(async (_event) => {
+  const { pg } = usePGlite()
+
+  const test = await pg.query('SELECT * FROM test').catch((e) => {
+    console.error(JSON.stringify(e, null, 2))
+    return undefined
   })
 
-  return pg.query('SELECT * FROM test')
+  if (!test && pg.ready) {
+    return await initDb()
+  }
+  else {
+    return test
+  }
 })

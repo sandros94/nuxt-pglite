@@ -1,7 +1,15 @@
 export default defineNuxtConfig({
   modules: ['nuxt-pglite'],
 
-  pglite: {},
+  pglite: {
+    client: {
+      debug: 1,
+      dataDir: 'idb://nuxt-pglite',
+    },
+    server: {
+      dataDir: './playground/server/database',
+    },
+  },
 
   devtools: { enabled: true },
   imports: { autoImport: true },

@@ -1,10 +1,9 @@
-export default eventHandler((_event) => {
+export async function initDb() {
   const { pg } = usePGlite({
-    dataDir: './playground/server/database/pglite-db',
     debug: 1,
   })
 
-  return pg.exec(`
+  return await pg.exec(`
 CREATE TABLE IF NOT EXISTS test (
   id SERIAL PRIMARY KEY,
   name TEXT
@@ -12,4 +11,4 @@ CREATE TABLE IF NOT EXISTS test (
 INSERT INTO test (name) VALUES ('test');
 SELECT * FROM test;
   `)
-})
+}
