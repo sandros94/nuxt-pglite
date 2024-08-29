@@ -1,5 +1,9 @@
 export default defineNuxtConfig({
-  modules: ['../src/module'],
-  myModule: {},
+  modules: ['nuxt-pglite'],
+
+  pglite: {},
+
   devtools: { enabled: true },
+  imports: { autoImport: true },
+  compatibilityDate: '2024-08-29',
 })
