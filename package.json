@@ -1,0 +1,55 @@
+{
+  "name": "nuxt-pglite",
+  "resolutions": {
+    "nuxt-pglite": "workspace:*"
+  },
+  "version": "0.0.0",
+  "description": "A Nuxt module aimed to simplify the use of PGLite.",
+  "repository": "sandros94/nuxt-pglite",
+  "license": "MIT",
+  "type": "module",
+  "author": {
+    "name": "Sandro Circi",
+    "email": "sandro.circi@digitoolmedia.com"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/module.mjs",
+      "require": "./dist/module.cjs"
+    }
+  },
+  "main": "./dist/module.cjs",
+  "types": "./dist/types.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "prepack": "nuxt-module-build build",
+    "dev": "nuxi dev playground",
+    "dev:build": "nuxi build playground",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground",
+    "release": "nr lint && nr test && nr prepack && changelogen --release && na publish && git push --follow-tags",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@nuxt/kit": "^3.13.0"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "^1.4.1",
+    "@nuxt/eslint-config": "^0.5.3",
+    "@nuxt/module-builder": "^0.8.3",
+    "@nuxt/schema": "^3.13.0",
+    "@nuxt/test-utils": "^3.14.1",
+    "@types/node": "^22.5.1",
+    "changelogen": "^0.5.5",
+    "eslint": "^9.9.1",
+    "nuxt": "^3.13.0",
+    "typescript": "latest",
+    "vitest": "^2.0.5",
+    "vue-tsc": "^2.1.0"
+  }
+}

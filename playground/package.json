@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "name": "nuxt-pglite-playground",
+  "type": "module",
+  "scripts": {
+    "dev": "nuxi dev",
+    "build": "nuxi build",
+    "generate": "nuxi generate"
+  },
+  "dependencies": {
+    "nuxt-pglite": "latest",
+    "nuxt": "^3.13.0"
+  }
+}
