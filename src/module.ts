@@ -1,4 +1,4 @@
-import { defineNuxtModule, addServerImports, createResolver } from '@nuxt/kit'
+import { defineNuxtModule, addImports, addServerImports, createResolver } from '@nuxt/kit'
 import type { PGliteOptions } from '@electric-sql/pglite'
 import { defu } from 'defu'
 
@@ -44,6 +44,12 @@ export default defineNuxtModule<ModuleOptions>({
     const runtimeDir = resolve('./runtime')
     nuxt.options.build.transpile.push(runtimeDir)
 
+    addImports([
+      {
+        name: 'usePGlite',
+        from: resolve(runtimeDir, 'composables', 'pglite'),
+      },
+    ])
     addServerImports([
       {
         name: 'usePGlite',

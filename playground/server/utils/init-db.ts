@@ -10,5 +10,5 @@ CREATE TABLE IF NOT EXISTS test (
 );
 INSERT INTO test (name) VALUES ('test');
 SELECT * FROM test;
-  `)
+`)
 }
