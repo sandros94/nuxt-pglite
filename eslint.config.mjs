@@ -30,7 +30,8 @@ export default createConfigForNuxt({
           },
         }],
 
-      // Project specific overrides
+        // Project specific overrides
+        '@typescript-eslint/no-explicit-any': 'off',
       },
     },
   )
