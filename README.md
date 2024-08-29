@@ -2,19 +2,19 @@
 Get your module up and running quickly.
 
 Find and replace all on all files (CMD+SHIFT+F):
-- Name: Nuxt PGLite
+- Name: Nuxt PGlite
 - Package name: nuxt-pglite
-- Description: A Nuxt module aimed to simplify the use of PGLite.
+- Description: A Nuxt module aimed to simplify the use of PGlite.
 -->
 
-# Nuxt PGLite
+# Nuxt PGlite
 
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
 [![License][license-src]][license-href]
 [![Nuxt][nuxt-src]][nuxt-href]
 
-A Nuxt module aimed to simplify the use of PGLite.
+A Nuxt module aimed to simplify the use of PGlite.
 
 - [✨ &nbsp;Release Notes](/CHANGELOG.md)
 <!-- - [🏀 Online playground](https://stackblitz.com/github/sandros94/nuxt-pglite?file=playground%2Fapp.vue) -->
@@ -35,7 +35,7 @@ Install the module to your Nuxt application with one command:
 npx nuxi module add nuxt-pglite
 ```
 
-That's it! You can now use Nuxt PGLite in your Nuxt app ✨
+That's it! You can now use Nuxt PGlite in your Nuxt app ✨
 
 
 ## Contribution

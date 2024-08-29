@@ -4,7 +4,7 @@
     "nuxt-pglite": "workspace:*"
   },
   "version": "0.0.0",
-  "description": "A Nuxt module aimed to simplify the use of PGLite.",
+  "description": "A Nuxt module aimed to simplify the use of PGlite.",
   "repository": "sandros94/nuxt-pglite",
   "license": "MIT",
   "type": "module",
