@@ -66,4 +66,4 @@ Temporary Items
 .apdisk
 
 # Project specific
-/playground/server/database
+/playground/server/database/pglite
