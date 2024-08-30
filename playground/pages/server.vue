@@ -1,5 +1,12 @@
 <template>
   <div>
+    <ul>
+      <li>
+        <NuxtLink to="/">
+          Home
+        </NuxtLink>
+      </li>
+    </ul>
     <button @click="init()">
       Init DB
     </button>
