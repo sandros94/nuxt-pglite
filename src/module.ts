@@ -35,10 +35,15 @@ export default defineNuxtModule<ModuleOptions>({
       nuxt.options.runtimeConfig.public.pglite,
       options.client,
     )
-    nuxt.options.runtimeConfig.pglite = defu(
+    const serverConfig = nuxt.options.runtimeConfig.pglite = defu(
       nuxt.options.runtimeConfig.pglite,
       options.server,
     )
+
+    // Use relative path for server directory
+    if (!serverConfig.dataDir.startsWith('memory://') && !serverConfig.dataDir.startsWith('file://')) {
+      serverConfig.dataDir = resolve(nuxt.options.serverDir, serverConfig.dataDir)
+    }
 
     // Transpile runtime
     const runtimeDir = resolve('./runtime')
