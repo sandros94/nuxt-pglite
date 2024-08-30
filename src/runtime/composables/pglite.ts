@@ -21,17 +21,17 @@ export function usePGlite(options?: PGliteOptions) {
   const _options = defu(options, pglite, { extensions: { live, vector } })
 
   const pg = shallowRef<PGlite | undefined>()
-  const irRightContext = ref(false)
+  const isRightContext = ref(false)
 
   async function init() {
-    if (!irRightContext.value) return undefined
+    if (!isRightContext.value) return undefined
     pg.value = await PGlite.create(_options)
     await nextTick()
     return pg.value
   }
 
   onNuxtReady(async () => {
-    irRightContext.value = true
+    isRightContext.value = true
     await init()
   })
 
