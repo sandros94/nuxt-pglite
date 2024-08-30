@@ -16,7 +16,7 @@ import {
   useRuntimeConfig,
 } from '#imports'
 
-export async function usePGlite(options?: PGliteWorkerOptions) {
+export function usePGlite(options?: PGliteWorkerOptions) {
   const { pglite } = useRuntimeConfig().public
   const _options = defu(options, pglite, { extensions: { live } })
 

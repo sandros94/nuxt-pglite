@@ -26,7 +26,7 @@ import type { Results } from '@electric-sql/pglite'
 
 const data = ref<Results[] | Results<unknown> | undefined>()
 
-const { pg, isReady, query } = await usePGlite()
+const { pg, isReady, query } = usePGlite()
 
 async function init() {
   if (!pg.value) {
