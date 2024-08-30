@@ -3,7 +3,6 @@ export default defineNuxtConfig({
 
   pglite: {
     client: {
-      debug: 1,
       dataDir: 'idb://nuxt-pglite',
     },
     server: {

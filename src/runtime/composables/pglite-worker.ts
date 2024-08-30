@@ -1,7 +1,7 @@
-import type { PGliteOptions, QueryOptions } from '@electric-sql/pglite'
-import { PGlite } from '@electric-sql/pglite'
+import type { PGliteWorkerOptions } from '@electric-sql/pglite/worker'
+import type { QueryOptions } from '@electric-sql/pglite'
+import { PGliteWorker } from '@electric-sql/pglite/worker'
 import { live } from '@electric-sql/pglite/live'
-import { vector } from '@electric-sql/pglite/vector'
 import { defu } from 'defu'
 
 import {
@@ -16,16 +16,19 @@ import {
   useRuntimeConfig,
 } from '#imports'
 
-export async function usePGlite(options?: PGliteOptions) {
+export async function usePGlite(options?: PGliteWorkerOptions) {
   const { pglite } = useRuntimeConfig().public
-  const _options = defu(options, pglite, { extensions: { live, vector } })
+  const _options = defu(options, pglite, { extensions: { live } })
 
-  const pg = shallowRef<PGlite | undefined>()
+  const pg = shallowRef<PGliteWorker | undefined>()
   const irRightContext = ref(false)
 
   async function init() {
     if (!irRightContext.value) return undefined
-    pg.value = await PGlite.create(_options)
+    pg.value = await PGliteWorker.create(
+      new Worker(new URL('../worker/pglite.js', import.meta.url), { type: 'module' }),
+      _options,
+    )
     await nextTick()
     return pg.value
   }
@@ -47,11 +50,11 @@ export async function usePGlite(options?: PGliteOptions) {
     return res
   }
 
-  function requirePGlite(pg: Ref<PGlite | undefined>): pg is Ref<PGlite> {
+  function requirePGlite(pg: Ref<PGliteWorker | undefined>): pg is Ref<PGliteWorker> {
     return pg.value?.ready === true
   }
 
-  const isReady = computed(() => requirePGlite(pg))
+  const isReady = computed(() => !!requirePGlite(pg))
   const isClosed = computed(() => !!pg.value?.closed)
 
   return {

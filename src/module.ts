@@ -49,6 +49,10 @@ export default defineNuxtModule<ModuleOptions>({
         name: 'usePGlite',
         from: resolve(runtimeDir, 'composables', 'pglite'),
       },
+      {
+        name: 'usePGliteWorker',
+        from: resolve(runtimeDir, 'composables', 'pglite-worker'),
+      },
     ])
     addServerImports([
       {
