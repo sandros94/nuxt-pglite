@@ -14,7 +14,9 @@ Find and replace all on all files (CMD+SHIFT+F):
 [![License][license-src]][license-href]
 [![Nuxt][nuxt-src]][nuxt-href]
 
-A Nuxt module aimed to simplify the use of PGlite.
+A Nuxt module aimed to simplify the use of [PGlite](https://pglite.dev).
+> PGlite, an Embeddable Postgres
+> Run a full Postgres database locally in WASM with reactivity and live sync.
 
 - [✨ &nbsp;Release Notes](/CHANGELOG.md)
 <!-- - [🏀 Online playground](https://stackblitz.com/github/sandros94/nuxt-pglite?file=playground%2Fapp.vue) -->
