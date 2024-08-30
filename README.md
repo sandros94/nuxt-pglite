@@ -23,9 +23,9 @@ A Nuxt module aimed to simplify the use of PGlite.
 ## Features
 
 <!-- Highlight some of the features your module provide here -->
-- ⛰ &nbsp;Foo
-- 🚠 &nbsp;Bar
-- 🌲 &nbsp;Baz
+- 🧑‍💻 &nbsp;Client side `usePGlite`, running in the JS main thread.
+- 🖥️ &nbsp;Client side `usePGliteWorker`, running inside Web Workers.
+- ⚡️ &nbsp;Server side `usePGlite`, running in your Node or Bun server.
 
 ## Quick Setup
 
