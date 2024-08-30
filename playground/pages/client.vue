@@ -1,5 +1,12 @@
 <template>
   <div>
+    <ul>
+      <li>
+        <NuxtLink to="/">
+          Home
+        </NuxtLink>
+      </li>
+    </ul>
     <h2>
       PGlite is {{ isReady ? 'ready' : 'not ready' }}
     </h2>
