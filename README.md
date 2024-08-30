@@ -1,12 +1,3 @@
-<!--
-Get your module up and running quickly.
-
-Find and replace all on all files (CMD+SHIFT+F):
-- Name: Nuxt PGlite
-- Package name: nuxt-pglite
-- Description: A Nuxt module aimed to simplify the use of PGlite.
--->
-
 # Nuxt PGlite
 
 [![npm version][npm-version-src]][npm-version-href]
