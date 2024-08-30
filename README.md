@@ -22,6 +22,9 @@ A Nuxt module aimed to simplify the use of [PGlite](https://pglite.dev).
 <!-- - [🏀 Online playground](https://stackblitz.com/github/sandros94/nuxt-pglite?file=playground%2Fapp.vue) -->
 <!-- - [📖 &nbsp;Documentation](https://example.com) -->
 
+> [!WARNING]  
+> This is an highly experimental project. No docs are available (although planned), please refer to the source code.
+
 ## Features
 
 <!-- Highlight some of the features your module provide here -->
