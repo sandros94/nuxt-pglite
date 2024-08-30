@@ -6,7 +6,7 @@ export default defineNuxtConfig({
       dataDir: 'idb://nuxt-pglite',
     },
     server: {
-      dataDir: './playground/server/database',
+      dataDir: './database/pglite',
     },
   },
 
