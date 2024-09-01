@@ -21,10 +21,10 @@ export function usePGlite(options?: PGliteWorkerOptions) {
   const _options = defu(options, pglite, { extensions: { live } })
 
   const pg = shallowRef<PGliteWorker | undefined>()
-  const irRightContext = ref(false)
+  const isRightContext = ref(false)
 
   async function init() {
-    if (!irRightContext.value) return undefined
+    if (!isRightContext.value) return undefined
     pg.value = await PGliteWorker.create(
       new Worker(new URL('../worker/pglite.js', import.meta.url), { type: 'module' }),
       _options,
@@ -34,7 +34,7 @@ export function usePGlite(options?: PGliteWorkerOptions) {
   }
 
   onNuxtReady(async () => {
-    irRightContext.value = true
+    isRightContext.value = true
     await init()
   })
 
