@@ -51,7 +51,7 @@ export function usePGlite(options?: PGliteOptions) {
     return pg.value?.ready === true
   }
 
-  const isReady = computed(() => requirePGlite(pg))
+  const isReady = computed(() => !!requirePGlite(pg))
   const isClosed = computed(() => !!pg.value?.closed)
 
   return {
