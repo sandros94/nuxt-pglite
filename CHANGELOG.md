@@ -1,6 +1,27 @@
 # Changelog
 
 
+## v0.0.2
+
+[compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.0.1...v0.0.2)
+
+### 🚀 Enhancements
+
+- DataDir relative path based on serverDir ([726c4b5](https://github.com/sandros94/nuxt-pglite/commit/726c4b5))
+
+### 🩹 Fixes
+
+- Simplify client side pglite (still hydration issue) ([6f1e542](https://github.com/sandros94/nuxt-pglite/commit/6f1e542))
+
+### 🏡 Chore
+
+- **release:** V0.0.1 ([60fc629](https://github.com/sandros94/nuxt-pglite/commit/60fc629))
+- Update gitignore ([f6dcaab](https://github.com/sandros94/nuxt-pglite/commit/f6dcaab))
+
+### ❤️ Contributors
+
+- Sandros94 ([@sandros94](http://github.com/sandros94))
+
 ## v0.0.1
 
 
