@@ -33,7 +33,7 @@ import type { Results } from '@electric-sql/pglite'
 
 const data = ref<Results[] | Results<unknown> | undefined>()
 
-const { pg, isReady } = usePGlite()
+const { pg, isReady } = usePGliteWorker()
 
 async function init() {
   if (!pg.value) {
