@@ -1,6 +1,5 @@
 import type { PGliteWorkerOptions } from '@electric-sql/pglite/worker'
 import { PGliteWorker } from '@electric-sql/pglite/worker'
-import { live } from '@electric-sql/pglite/live'
 import { defu } from 'defu'
 
 import {
@@ -14,7 +13,7 @@ import {
 
 export function usePGliteWorker(options?: PGliteWorkerOptions) {
   const { pglite } = useRuntimeConfig().public
-  const _options = defu(options, pglite, { extensions: { live } })
+  const _options = defu(options, pglite)
   const pg = shallowRef<PGliteWorker | undefined>()
 
   if (import.meta.client) {

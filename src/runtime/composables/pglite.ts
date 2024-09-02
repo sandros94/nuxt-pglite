@@ -1,7 +1,5 @@
 import type { PGliteOptions } from '@electric-sql/pglite'
 import { PGlite } from '@electric-sql/pglite'
-import { live } from '@electric-sql/pglite/live'
-import { vector } from '@electric-sql/pglite/vector'
 import { defu } from 'defu'
 
 import {
@@ -15,7 +13,7 @@ import {
 
 export function usePGlite(options?: PGliteOptions) {
   const { pglite } = useRuntimeConfig().public
-  const _options = defu(options, pglite, { extensions: { live, vector } })
+  const _options = defu(options, pglite)
   const pg = shallowRef<PGlite>()
 
   if (import.meta.client) {
