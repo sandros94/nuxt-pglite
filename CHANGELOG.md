@@ -1,6 +1,31 @@
 # Changelog
 
 
+## v0.1.0
+
+[compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.0.2...v0.1.0)
+
+### 🚀 Enhancements
+
+- Better treeshaking ([fcff1dd](https://github.com/sandros94/nuxt-pglite/commit/fcff1dd))
+
+### 💅 Refactors
+
+- ⚠️  PGlite server util fixes #3 ([#3](https://github.com/sandros94/nuxt-pglite/issues/3))
+
+### 🏡 Chore
+
+- Update deps ([7e4c51b](https://github.com/sandros94/nuxt-pglite/commit/7e4c51b))
+- Create drizzle example in playground ([fe0e5b0](https://github.com/sandros94/nuxt-pglite/commit/fe0e5b0))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️  PGlite server util fixes #3 ([#3](https://github.com/sandros94/nuxt-pglite/issues/3))
+
+### ❤️ Contributors
+
+- Sandros94 ([@sandros94](http://github.com/sandros94))
+
 ## v0.0.2
 
 [compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.0.1...v0.0.2)
