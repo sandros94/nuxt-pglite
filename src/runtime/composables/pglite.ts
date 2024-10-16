@@ -12,7 +12,7 @@ import {
 } from '#imports'
 
 export function usePGlite(options?: PGliteOptions) {
-  const { pglite } = useRuntimeConfig().public
+  const { pglite: { autoImport, ...pglite } } = useRuntimeConfig().public
   const _options = defu(options, pglite)
   const pg = shallowRef<PGlite>()
 

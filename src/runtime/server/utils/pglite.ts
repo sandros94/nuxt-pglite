@@ -6,7 +6,7 @@ import { useRuntimeConfig } from '#imports'
 let _pglite: PGlite | undefined
 export function usePGlite(options?: PGliteOptions) {
   if (!_pglite) {
-    const { pglite } = useRuntimeConfig()
+    const { pglite: { autoImport, ...pglite } } = useRuntimeConfig()
     const opts = defu<PGliteOptions, PGliteOptions[]>(options, pglite)
     _pglite = new PGlite(opts)
   }

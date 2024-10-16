@@ -12,7 +12,7 @@ import {
 } from '#imports'
 
 export function usePGliteWorker(options?: PGliteWorkerOptions) {
-  const { pglite } = useRuntimeConfig().public
+  const { pglite: { autoImport, ...pglite } } = useRuntimeConfig().public
   const _options = defu(options, pglite)
   const pg = shallowRef<PGliteWorker | undefined>()
 

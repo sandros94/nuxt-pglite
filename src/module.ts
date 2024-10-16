@@ -10,8 +10,8 @@ import { defu } from 'defu'
 
 // Module options TypeScript interface definition
 export interface ModuleOptions {
-  client?: PGliteOptions
-  server?: PGliteOptions
+  client?: PGliteOptions & { autoImport?: boolean }
+  server?: PGliteOptions & { autoImport?: boolean }
 }
 
 export default defineNuxtModule<ModuleOptions>({
@@ -22,10 +22,12 @@ export default defineNuxtModule<ModuleOptions>({
   // Default configuration options of the Nuxt module
   defaults: {
     client: {
+      autoImport: true,
       debug: undefined,
       dataDir: 'memory://nuxt-pglite',
     },
     server: {
+      autoImport: true,
       debug: undefined,
       dataDir: 'memory://nuxt-pglite',
     },
@@ -36,6 +38,11 @@ export default defineNuxtModule<ModuleOptions>({
     nuxt.options.vite ||= {}
     nuxt.options.vite.optimizeDeps ||= {}
     nuxt.options.vite.optimizeDeps.exclude?.push('@electric-sql/pglite')
+
+    // Transpile runtime
+    const runtimeDir = resolve('./runtime')
+    nuxt.options.build.transpile.push(runtimeDir)
+    nuxt.options.alias['#pglite'] = resolve(runtimeDir)
 
     nuxt.options.runtimeConfig.public.pglite = defu(
       nuxt.options.runtimeConfig.public.pglite,
@@ -51,26 +58,26 @@ export default defineNuxtModule<ModuleOptions>({
       serverConfig.dataDir = resolve(nuxt.options.serverDir, serverConfig.dataDir)
     }
 
-    // Transpile runtime
-    const runtimeDir = resolve('./runtime')
-    nuxt.options.build.transpile.push(runtimeDir)
-
-    addImports([
-      {
-        name: 'usePGlite',
-        from: resolve(runtimeDir, 'composables', 'pglite'),
-      },
-      {
-        name: 'usePGliteWorker',
-        from: resolve(runtimeDir, 'composables', 'pglite-worker'),
-      },
-    ])
-    addServerImports([
-      {
-        name: 'usePGlite',
-        from: resolve(runtimeDir, 'server', 'utils', 'pglite'),
-      },
-    ])
-    addServerPlugin(resolve(runtimeDir, 'server', 'plugins', 'pglite'))
+    if (nuxt.options.runtimeConfig.public.pglite.autoImport) {
+      addImports([
+        {
+          name: 'usePGlite',
+          from: resolve(runtimeDir, 'composables', 'pglite'),
+        },
+        {
+          name: 'usePGliteWorker',
+          from: resolve(runtimeDir, 'composables', 'pglite-worker'),
+        },
+      ])
+    }
+    if (nuxt.options.runtimeConfig.pglite.autoImport) {
+      addServerImports([
+        {
+          name: 'usePGlite',
+          from: resolve(runtimeDir, 'server', 'utils', 'pglite'),
+        },
+      ])
+      addServerPlugin(resolve(runtimeDir, 'server', 'plugins', 'pglite'))
+    }
   },
 })
