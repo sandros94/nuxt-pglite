@@ -1,5 +1,5 @@
 export default eventHandler(async (_event) => {
-  const { pg } = usePGlite()
+  const pg = usePGlite()
 
   const test = await pg.query('SELECT * FROM test').catch((e) => {
     console.error(JSON.stringify(e, null, 2))

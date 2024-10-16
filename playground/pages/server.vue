@@ -7,8 +7,8 @@
         </NuxtLink>
       </li>
     </ul>
-    <button @click="init()">
-      Init DB
+    <button @click="reset(); query()">
+      Reset DB
     </button>
     <pre v-if="data">
       {{ data }}
@@ -36,7 +36,7 @@ import type { Results } from '@electric-sql/pglite'
 
 const test = ref<Results | undefined>()
 
-const { execute: init } = await useFetch('/api/init', {
+const { execute: reset } = await useFetch('/api/reset', {
   method: 'POST',
   immediate: false,
 })

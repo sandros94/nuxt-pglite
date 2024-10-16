@@ -1,4 +1,10 @@
-import { defineNuxtModule, addImports, addServerImports, createResolver } from '@nuxt/kit'
+import {
+  addImports,
+  addServerImports,
+  addServerPlugin,
+  createResolver,
+  defineNuxtModule,
+} from '@nuxt/kit'
 import type { PGliteOptions } from '@electric-sql/pglite'
 import { defu } from 'defu'
 
@@ -65,5 +71,6 @@ export default defineNuxtModule<ModuleOptions>({
         from: resolve(runtimeDir, 'server', 'utils', 'pglite'),
       },
     ])
+    addServerPlugin(resolve(runtimeDir, 'server', 'plugins', 'pglite'))
   },
 })

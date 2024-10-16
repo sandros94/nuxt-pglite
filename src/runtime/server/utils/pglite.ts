@@ -3,15 +3,13 @@ import { defu } from 'defu'
 
 import { useRuntimeConfig } from '#imports'
 
+let _pglite: PGlite | undefined
 export function usePGlite(options?: PGliteOptions) {
-  const { pglite } = useRuntimeConfig()
-
-  const _options = defu(options, pglite)
-
-  const pg = new PGlite(_options)
-
-  return {
-    pg,
-    db: pg,
+  if (!_pglite) {
+    const { pglite } = useRuntimeConfig()
+    const opts = defu<PGliteOptions, PGliteOptions[]>(options, pglite)
+    _pglite = new PGlite(opts)
   }
+
+  return _pglite
 }
