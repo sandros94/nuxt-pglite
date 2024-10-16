@@ -9,6 +9,6 @@
   },
   "dependencies": {
     "nuxt-pglite": "latest",
-    "nuxt": "^3.13.0"
+    "nuxt": "^3.13.2"
   }
 }
