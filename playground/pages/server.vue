@@ -7,35 +7,24 @@
         </NuxtLink>
       </li>
     </ul>
-    <button @click="reset(); query()">
-      Reset DB
-    </button>
+    <div style="display: inline-flex; gap: .5rem;">
+      <button @click="reset(); query()">
+        Reset DB
+      </button>
+      <button @click="insert(); query()">
+        Insert
+      </button>
+    </div>
     <pre v-if="data">
       {{ data }}
     </pre>
     <p v-else>
       Loading...
     </p>
-    <button @click="insert(); query()">
-      Insert
-    </button>
-    <button @click="query()">
-      Query
-    </button>
-    <pre v-if="test">
-      {{ test.rows }}
-    </pre>
-    <p v-else>
-      Query not run yet
-    </p>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { Results } from '@electric-sql/pglite'
-
-const test = ref<Results | undefined>()
-
 const { execute: reset } = await useFetch('/api/reset', {
   method: 'POST',
   immediate: false,
