@@ -39,7 +39,11 @@
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
     "test:watch": "vitest watch",
-    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
+    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit",
+    "db:push": "cd playground && drizzle-kit push --config=./drizzle.config.ts",
+    "db:generate": "cd playground && drizzle-kit generate --config=./drizzle.config.ts",
+    "db:migrate": "cd playground && drizzle-kit migrate --config=./drizzle.config.ts",
+    "db:studio": "cd playground && drizzle-kit studio --config=./drizzle.config.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.2.12",

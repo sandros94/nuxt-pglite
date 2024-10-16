@@ -1,5 +1,9 @@
 export default defineNuxtConfig({
   modules: ['nuxt-pglite'],
+  imports: { autoImport: true },
+
+  devtools: { enabled: true },
+  compatibilityDate: '2024-08-29',
 
   pglite: {
     client: {
@@ -9,8 +13,4 @@ export default defineNuxtConfig({
       dataDir: './database/pglite',
     },
   },
-
-  devtools: { enabled: true },
-  imports: { autoImport: true },
-  compatibilityDate: '2024-08-29',
 })
