@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.1.1
+
+[compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.1.0...v0.1.1)
+
+### 🩹 Fixes
+
+- **server:** Gracefully close PGlite ([6c5fd8a](https://github.com/sandros94/nuxt-pglite/commit/6c5fd8a))
+
+### ❤️ Contributors
+
+- Sandros94 ([@sandros94](http://github.com/sandros94))
+
 ## v0.1.0
 
 [compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.0.2...v0.1.0)
