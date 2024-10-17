@@ -1,6 +1,19 @@
 # Changelog
 
 
+## v0.1.2
+
+[compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.1.1...v0.1.2)
+
+### 🏡 Chore
+
+- **release:** V0.1.1 ([fc2df11](https://github.com/sandros94/nuxt-pglite/commit/fc2df11))
+- Update deps ([ee221a2](https://github.com/sandros94/nuxt-pglite/commit/ee221a2))
+
+### ❤️ Contributors
+
+- Sandros94 ([@sandros94](http://github.com/sandros94))
+
 ## v0.1.1
 
 [compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.1.0...v0.1.1)
