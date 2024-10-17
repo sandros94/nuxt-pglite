@@ -3,17 +3,17 @@ import { consola } from 'consola'
 import { defineNitroPlugin, usePGlite } from '#imports'
 
 export default defineNitroPlugin((nitroApp) => {
-  nitroApp.hooks.hook('close', () => {
+  nitroApp.hooks.hookOnce('close', async () => {
     const pg = usePGlite()
 
     if (pg) {
-      consola.log('`Server`: closing PGlite...')
-      pg.close()
+      consola.log('`Nitro`: closing PGlite...')
+      await pg.close()
 
       if (pg.closed) {
-        consola.success('`Server`: PGlite closed!')
+        consola.success('`Nitro`: PGlite closed!')
       }
     }
-    else consola.log('`Server`: no PGlite instance found. Nitro Shuting down.')
+    else consola.log('`Nitro`: no PGlite instance found. Nitro Shuting down.')
   })
 })
