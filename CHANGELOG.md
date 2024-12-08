@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.2.1
+
+[compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.2.0...v0.2.1)
+
+### 🩹 Fixes
+
+- Remove default options ([aa6f473](https://github.com/sandros94/nuxt-pglite/commit/aa6f473))
+
+### ❤️ Contributors
+
+- Sandros94 ([@sandros94](http://github.com/sandros94))
+
 ## v0.2.0
 
 [compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.1.2...v0.2.0)
