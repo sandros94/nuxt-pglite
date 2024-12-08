@@ -73,7 +73,7 @@ export default defineNuxtConfig({
 For a full list of available extensions please refer to [the official docs](https://pglite.dev/extensions). If a new extension is missing feel free to open up a new PR by adding it to [this file](/src/templates.ts#L62-L87), (I do plan to support only official and contrib).
 
 > [!WARNING]  
-> Auto configuration for server-side extensions is currently not supported, the simplest approach is to create a vrapper util like `/server/utils/db.ts`:
+> Auto configuration for server-side extensions is currently not supported, the simplest approach is to create a wrapper util like `/server/utils/db.ts`:
 > ```ts
 > import { vector } from '@electric-sql/pglite/vector'
 >
