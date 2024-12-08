@@ -5,7 +5,7 @@ export default defineNuxtConfig({
 
   pglite: {
     client: {
-      autoImport: false,
+      enabled: false,
     },
   },
 })
