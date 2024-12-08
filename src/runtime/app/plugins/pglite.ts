@@ -1,4 +1,4 @@
-import { PGliteWorker } from '@electric-sql/pglite/worker'
+import { type PGliteWorkerOptions, PGliteWorker } from '@electric-sql/pglite/worker'
 import type { PGliteInterfaceExtensions } from '@electric-sql/pglite'
 
 import { defineNuxtPlugin, useRuntimeConfig } from '#imports'
@@ -16,7 +16,7 @@ export default defineNuxtPlugin({
       pglite = await PGliteWorker.create(
         new Worker(new URL('../worker/pglite.js', import.meta.url), { type: 'module' }),
         {
-          ...useRuntimeConfig().public.pglite,
+          ...useRuntimeConfig().public.pglite as PGliteWorkerOptions,
           extensions,
         },
       )

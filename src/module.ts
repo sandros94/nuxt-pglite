@@ -61,7 +61,11 @@ export default defineNuxtModule<ModuleOptions>({
     )
 
     // Use relative path for server directory
-    if (!serverConfig.dataDir.startsWith('memory://') && !serverConfig.dataDir.startsWith('file://')) {
+    if (
+      serverConfig.dataDir
+      && !serverConfig.dataDir?.startsWith('memory://')
+      && !serverConfig.dataDir?.startsWith('file://')
+    ) {
       serverConfig.dataDir = resolve(nuxt.options.serverDir, serverConfig.dataDir)
     }
 
