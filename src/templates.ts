@@ -50,7 +50,11 @@ function getExtensions(extensions: ExtensionName[] = []) {
 
   extensions.forEach((extension) => {
     imports.push(`import { ${extension} } from '${extensionSources[extension]}'`)
-    exts.push(extension)
+    exts.push(
+      extension === 'electricSync'
+        ? 'electric: electricSync()'
+        : extension,
+    )
   })
 
   return {
