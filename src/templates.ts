@@ -49,7 +49,7 @@ function getExtensions(extensions: ExtensionName[] = []) {
   const exts: string[] = []
 
   extensions.forEach((extension) => {
-    imports.push(`import { ${extension} } from '${extensionSource[extension]}'`)
+    imports.push(`import { ${extension} } from '${extensionSources[extension]}'`)
     exts.push(extension)
   })
 
@@ -59,7 +59,7 @@ function getExtensions(extensions: ExtensionName[] = []) {
   }
 }
 
-const extensionSource = {
+const extensionSources = {
   live: '@electric-sql/pglite/live',
   vector: '@electric-sql/pglite/vector',
   electricSync: '@electric-sql/pglite-sync',
