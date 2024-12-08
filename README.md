@@ -34,7 +34,8 @@ That's it! You can now use Nuxt PGlite in your Nuxt app ✨
 
 ### Persisten Storage
 
-By default this module will persist data in memory. You can set where to store data in your `nuxt.config.ts`:
+You can set where to store data in your `nuxt.config.ts`:
+
 ```ts
 export default defineNuxtConfig({
   modules: ['nuxt-pglite'],
