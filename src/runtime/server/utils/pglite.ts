@@ -3,13 +3,12 @@ import { defu } from 'defu'
 
 import { useRuntimeConfig } from '#imports'
 
-let _pglite: PGlite | undefined
+let pglite: PGlite | undefined
 export function usePGlite(options?: PGliteOptions) {
-  if (!_pglite) {
-    const { pglite: { autoImport, ...pglite } } = useRuntimeConfig()
-    const opts = defu<PGliteOptions, PGliteOptions[]>(options, pglite)
-    _pglite = new PGlite(opts)
+  if (!pglite) {
+    const opts = defu<PGliteOptions, PGliteOptions[]>(options, useRuntimeConfig().pglite)
+    pglite = new PGlite(opts)
   }
 
-  return _pglite
+  return pglite
 }

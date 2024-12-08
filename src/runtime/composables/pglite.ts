@@ -12,8 +12,7 @@ import {
 } from '#imports'
 
 export function usePGlite(options?: PGliteOptions) {
-  const { pglite: { autoImport, ...pglite } } = useRuntimeConfig().public
-  const _options = defu(options, pglite)
+  const _options = defu(options, useRuntimeConfig().public.pglite)
   const pg = shallowRef<PGlite>()
 
   if (import.meta.client) {

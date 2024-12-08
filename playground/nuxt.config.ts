@@ -1,5 +1,5 @@
 export default defineNuxtConfig({
-  modules: ['nuxt-pglite'],
+  modules: ['../src/module'],
   imports: { autoImport: true },
 
   devtools: { enabled: true },
@@ -7,10 +7,14 @@ export default defineNuxtConfig({
 
   pglite: {
     client: {
-      dataDir: 'idb://nuxt-pglite',
+      options: {
+        dataDir: 'idb://nuxt-pglite',
+      },
     },
     server: {
-      dataDir: './database/pglite',
+      options: {
+        dataDir: './database/pglite',
+      },
     },
   },
 })

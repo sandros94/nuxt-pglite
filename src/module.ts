@@ -8,10 +8,15 @@ import {
 import type { PGliteOptions } from '@electric-sql/pglite'
 import { defu } from 'defu'
 
-// Module options TypeScript interface definition
 export interface ModuleOptions {
-  client?: PGliteOptions & { autoImport?: boolean }
-  server?: PGliteOptions & { autoImport?: boolean }
+  client?: {
+    enabled?: boolean
+    options?: PGliteOptions
+  }
+  server?: {
+    enabled?: boolean
+    options?: PGliteOptions
+  }
 }
 
 export default defineNuxtModule<ModuleOptions>({
@@ -19,17 +24,12 @@ export default defineNuxtModule<ModuleOptions>({
     name: 'nuxt-pglite',
     configKey: 'pglite',
   },
-  // Default configuration options of the Nuxt module
   defaults: {
     client: {
-      autoImport: true,
-      debug: undefined,
-      dataDir: 'memory://nuxt-pglite',
+      enabled: true,
     },
     server: {
-      autoImport: true,
-      debug: undefined,
-      dataDir: 'memory://nuxt-pglite',
+      enabled: true,
     },
   },
   setup(options, nuxt) {
@@ -46,11 +46,19 @@ export default defineNuxtModule<ModuleOptions>({
 
     nuxt.options.runtimeConfig.public.pglite = defu(
       nuxt.options.runtimeConfig.public.pglite,
-      options.client,
+      options.client?.options,
+      {
+        debug: undefined,
+        dataDir: 'memory://nuxt-pglite',
+      },
     )
     const serverConfig = nuxt.options.runtimeConfig.pglite = defu(
       nuxt.options.runtimeConfig.pglite,
-      options.server,
+      options.server?.options,
+      {
+        debug: undefined,
+        dataDir: 'memory://nuxt-pglite',
+      },
     )
 
     // Use relative path for server directory
@@ -58,7 +66,7 @@ export default defineNuxtModule<ModuleOptions>({
       serverConfig.dataDir = resolve(nuxt.options.serverDir, serverConfig.dataDir)
     }
 
-    if (nuxt.options.runtimeConfig.public.pglite.autoImport) {
+    if (options.client?.enabled !== false) {
       addImports([
         {
           name: 'usePGlite',
@@ -70,7 +78,7 @@ export default defineNuxtModule<ModuleOptions>({
         },
       ])
     }
-    if (nuxt.options.runtimeConfig.pglite.autoImport) {
+    if (options.server?.enabled !== false) {
       addServerImports([
         {
           name: 'usePGlite',
