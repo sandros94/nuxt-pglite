@@ -14,7 +14,10 @@ export default defineNuxtPlugin({
 
     if (!import.meta.server) {
       pglite = await PGliteWorker.create(
-        new Worker(new URL('../worker/pglite.js', import.meta.url), { type: 'module' }),
+        new Worker(new URL('../worker/pglite.js?worker', import.meta.url), {
+          name: 'pglite-worker',
+          type: 'module',
+        }),
         {
           ...useRuntimeConfig().public.pglite as PGliteWorkerOptions,
           extensions,
