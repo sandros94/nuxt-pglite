@@ -14,7 +14,7 @@ A Nuxt module aimed to simplify the use of [PGlite](https://pglite.dev).
 <!-- - [📖 &nbsp;Documentation](https://example.com) -->
 
 > [!WARNING]  
-> This is an highly experimental project. No docs are available (although planned), please refer to the source code.
+> This is an highly experimental project. No docs are available (although planned), please refer to the [playground code](/playground).
 
 ## Features
 
