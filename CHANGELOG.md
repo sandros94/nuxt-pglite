@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.2.2
+
+[compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.2.1...v0.2.2)
+
+### 🚀 Enhancements
+
+- Support `opfs-ahp` client-side ([4b3386b](https://github.com/sandros94/nuxt-pglite/commit/4b3386b))
+
+### ❤️ Contributors
+
+- Sandros94 ([@sandros94](http://github.com/sandros94))
+
 ## v0.2.1
 
 [compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.2.0...v0.2.1)
