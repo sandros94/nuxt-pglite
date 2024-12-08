@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.2.4
+
+[compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.2.3...v0.2.4)
+
+### 🩹 Fixes
+
+- Better vite support for workers ([122a877](https://github.com/sandros94/nuxt-pglite/commit/122a877))
+
+### ❤️ Contributors
+
+- Sandros94 ([@sandros94](http://github.com/sandros94))
+
 ## v0.2.3
 
 [compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.2.2...v0.2.3)
