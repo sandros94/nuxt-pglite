@@ -1,6 +1,37 @@
 # Changelog
 
 
+## v0.2.0
+
+[compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.1.2...v0.2.0)
+
+### 🩹 Fixes
+
+- ⚠️  Module options and better tree-shaking ([a1974fd](https://github.com/sandros94/nuxt-pglite/commit/a1974fd))
+- Intarnal naming ([4e1b509](https://github.com/sandros94/nuxt-pglite/commit/4e1b509))
+
+### 💅 Refactors
+
+- ⚠️  Native extensions support, client side worker only via nuxt plugin ([043edab](https://github.com/sandros94/nuxt-pglite/commit/043edab))
+
+### 📖 Documentation
+
+- Update readme ([edb3774](https://github.com/sandros94/nuxt-pglite/commit/edb3774))
+
+### 🏡 Chore
+
+- Update deps ([1d34869](https://github.com/sandros94/nuxt-pglite/commit/1d34869))
+- Update all deps ([2c201f2](https://github.com/sandros94/nuxt-pglite/commit/2c201f2))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️  Module options and better tree-shaking ([a1974fd](https://github.com/sandros94/nuxt-pglite/commit/a1974fd))
+- ⚠️  Native extensions support, client side worker only via nuxt plugin ([043edab](https://github.com/sandros94/nuxt-pglite/commit/043edab))
+
+### ❤️ Contributors
+
+- Sandros94 ([@sandros94](http://github.com/sandros94))
+
 ## v0.1.2
 
 [compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.1.1...v0.1.2)
