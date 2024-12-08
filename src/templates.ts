@@ -34,7 +34,7 @@ export default { extensions }`
       else return `${serverExts.imports.join('\n')}
 
 export const extensions = {
-  ${serverExts.extensions.join('\n  ')}
+  ${serverExts.extensions.join(',\n  ')}
 }
 
 export default { extensions }
