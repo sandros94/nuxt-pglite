@@ -54,18 +54,10 @@ export default defineNuxtModule<ModuleOptions>({
     nuxt.options.runtimeConfig.public.pglite = defu(
       nuxt.options.runtimeConfig.public.pglite,
       options.client?.options,
-      {
-        debug: undefined,
-        dataDir: 'memory://nuxt-pglite',
-      },
     )
     const serverConfig = nuxt.options.runtimeConfig.pglite = defu(
       nuxt.options.runtimeConfig.pglite,
       options.server?.options,
-      {
-        debug: undefined,
-        dataDir: 'memory://nuxt-pglite',
-      },
     )
 
     // Use relative path for server directory
