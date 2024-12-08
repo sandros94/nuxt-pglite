@@ -1,61 +1,68 @@
 <template>
-  <div>
-    <ul>
-      <li>
-        <NuxtLink to="/">
-          Home
-        </NuxtLink>
-      </li>
-    </ul>
-    <h2>
-      PGlite is {{ isReady ? 'ready' : 'not ready' }}
-    </h2>
-    <button @click="init()">
-      Init DB
-    </button>
-    <button @click="insert()">
-      Insert
-    </button>
-    <button @click="query()">
-      Query
-    </button>
-    <pre v-if="data">
-      {{ data }}
-    </pre>
-    <p v-else>
-      Loading...
-    </p>
-  </div>
+  <ClientOnly>
+    <div>
+      <ul>
+        <li>
+          <NuxtLink to="/">
+            Home
+          </NuxtLink>
+        </li>
+      </ul>
+      <h2>
+        PGlite is {{ db?.ready ? 'ready' : 'not ready' }}
+      </h2>
+      <button @click="reset()">
+        Init DB
+      </button>
+      <button @click="insert()">
+        Insert
+      </button>
+      <button @click="query()">
+        Query
+      </button>
+      <pre v-if="data">
+        {{ data }}
+      </pre>
+      <p v-else>
+        Loading...
+      </p>
+    </div>
+  </ClientOnly>
 </template>
 
 <script setup lang="ts">
 import type { Results } from '@electric-sql/pglite'
 
+const name = ['Marco', 'Polo', 'Leonardo', 'Da Vinci', 'Michelangelo', 'Raffaello', 'Donatello']
 const data = ref<Results[] | Results<unknown> | undefined>()
 
-const { pg, isReady } = usePGlite()
+const db = usePGlite()
 
-async function init() {
-  if (!pg.value) {
-    console.error('PGlite is not ready')
-    return
-  }
-  await pg.value?.exec(`
+async function reset() {
+  await db?.exec(`
+DROP TABLE IF EXISTS test;
 CREATE TABLE IF NOT EXISTS test (
   id SERIAL PRIMARY KEY,
   name TEXT
 );
-INSERT INTO test (name) VALUES ('test');
-`)
+`).then(() => query())
 }
 
-data.value = await pg.value?.query('SELECT * FROM test')
+data.value = await db?.query('SELECT * FROM test')
 
 async function query() {
-  return data.value = await pg.value?.query('SELECT * FROM test')
+  return data.value = await db?.query('SELECT * FROM test')
 }
 
 async function insert() {
-  await pg.value?.query(`INSERT INTO test (name) VALUES ('test')`)
+  if (!db) return
+  await db
+    .query(
+      `INSERT INTO test (name) VALUES ($1)`,
+      [
+        name[Math.floor(Math.random() * name.length)],
+      ],
+    )
+    .then(() => query())
 }
 </script>

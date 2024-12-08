@@ -1,14 +1,19 @@
-import { type PGliteOptions, PGlite } from '@electric-sql/pglite'
-import { defu } from 'defu'
+import type { PGliteInterfaceExtensions, PGliteOptions } from '@electric-sql/pglite'
+import { PGlite } from '@electric-sql/pglite'
 
 import { useRuntimeConfig } from '#imports'
+// import { extensions } from '#nitro-build/pglite-extensions'
 
-let pglite: PGlite | undefined
-export function usePGlite(options?: PGliteOptions) {
+type PGliteInterface<E> = PGlite & PGliteInterfaceExtensions<E>
+
+let pglite: PGliteInterface<unknown> | undefined
+export function usePGlite<T extends PGliteOptions['extensions']>(extensions?: T): PGliteInterface<T> {
   if (!pglite) {
-    const opts = defu<PGliteOptions, PGliteOptions[]>(options, useRuntimeConfig().pglite)
-    pglite = new PGlite(opts)
+    pglite = new PGlite({
+      ...useRuntimeConfig().pglite,
+      extensions,
+    }) as PGliteInterface<T>
   }
 
-  return pglite
+  return pglite as PGliteInterface<T>
 }

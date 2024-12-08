@@ -1,21 +1,28 @@
 import {
   addImports,
+  addPlugin,
   addServerImports,
   addServerPlugin,
   createResolver,
   defineNuxtModule,
 } from '@nuxt/kit'
+import type { PGliteWorkerOptions } from '@electric-sql/pglite/worker'
 import type { PGliteOptions } from '@electric-sql/pglite'
 import { defu } from 'defu'
+
+import type { ExtensionName } from './runtime/types'
+import { addTemplates } from './templates'
 
 export interface ModuleOptions {
   client?: {
     enabled?: boolean
-    options?: PGliteOptions
+    extensions?: ExtensionName[]
+    options?: Omit<PGliteWorkerOptions, 'extensions'>
   }
   server?: {
     enabled?: boolean
-    options?: PGliteOptions
+    extensions?: ExtensionName[]
+    options?: Omit<PGliteOptions, 'extensions'>
   }
 }
 
@@ -37,7 +44,7 @@ export default defineNuxtModule<ModuleOptions>({
 
     nuxt.options.vite ||= {}
     nuxt.options.vite.optimizeDeps ||= {}
-    nuxt.options.vite.optimizeDeps.exclude?.push('@electric-sql/pglite')
+    nuxt.options.vite.optimizeDeps.exclude?.push('@electric-sql/pglite', '@electric-sql/pglite-sync')
 
     // Transpile runtime
     const runtimeDir = resolve('./runtime')
@@ -67,14 +74,13 @@ export default defineNuxtModule<ModuleOptions>({
     }
 
     if (options.client?.enabled !== false) {
+      addPlugin({
+        src: resolve(runtimeDir, 'app', 'plugins', 'pglite'),
+      }, { append: true })
       addImports([
         {
           name: 'usePGlite',
-          from: resolve(runtimeDir, 'composables', 'pglite'),
-        },
-        {
-          name: 'usePGliteWorker',
-          from: resolve(runtimeDir, 'composables', 'pglite-worker'),
+          from: resolve(runtimeDir, 'app', 'composables', 'pglite'),
         },
       ])
     }
@@ -87,5 +93,7 @@ export default defineNuxtModule<ModuleOptions>({
       ])
       addServerPlugin(resolve(runtimeDir, 'server', 'plugins', 'pglite'))
     }
+
+    addTemplates(options)
   },
 })

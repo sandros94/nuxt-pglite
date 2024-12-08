@@ -11,11 +11,6 @@
           Client Side
         </NuxtLink>
       </li>
-      <li>
-        <NuxtLink to="/client-worker">
-          Client Side Worker
-        </NuxtLink>
-      </li>
     </ul>
   </div>
 </template>
