@@ -55,6 +55,8 @@ export default defineNuxtConfig({
 })
 ```
 
+For supported filesystem please refer to the [official documentation](https://pglite.dev/docs/filesystems).
+
 ### Extensions
 
 Extensions are automatically configured with full type support and can be added via `nuxt.config.ts`:
