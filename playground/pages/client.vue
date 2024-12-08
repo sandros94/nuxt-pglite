@@ -33,13 +33,18 @@
 <script setup lang="ts">
 import type { Results } from '@electric-sql/pglite'
 
-const name = ['Marco', 'Polo', 'Leonardo', 'Da Vinci', 'Michelangelo', 'Raffaello', 'Donatello']
-const data = ref<Results[] | Results<unknown> | undefined>()
+interface Record {
+  id: number
+  name: typeof names[number]
+}
+
+const names = ['Marco', 'Polo', 'Leonardo', 'Da Vinci', 'Michelangelo', 'Raffaello', 'Donatello'] as const
+const data = ref<Results<Record> | undefined>()
 
 const db = usePGlite()
 
 async function reset() {
-  await db?.exec(`
+  return db?.exec(`
 DROP TABLE IF EXISTS test;
 CREATE TABLE IF NOT EXISTS test (
   id SERIAL PRIMARY KEY,
@@ -48,10 +53,11 @@ CREATE TABLE IF NOT EXISTS test (
 `).then(() => query())
 }
 
-data.value = await db?.query('SELECT * FROM test')
+await query()
+  .catch(async () => await reset())
 
 async function query() {
-  return data.value = await db?.query('SELECT * FROM test')
+  return data.value = await db?.query<Record>('SELECT * FROM test')
 }
 
 async function insert() {
@@ -60,7 +66,7 @@ async function insert() {
     .query(
       `INSERT INTO test (name) VALUES ($1)`,
       [
-        name[Math.floor(Math.random() * name.length)],
+        names[Math.floor(Math.random() * names.length)],
       ],
     )
     .then(() => query())

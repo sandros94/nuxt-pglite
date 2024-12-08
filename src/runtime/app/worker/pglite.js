@@ -3,6 +3,7 @@ import { worker } from '@electric-sql/pglite/worker'
 
 worker({
   async init(options) {
-    return new PGlite(options)
+    const { dataDir, ...opts } = options
+    return new PGlite(dataDir, opts)
   },
 })

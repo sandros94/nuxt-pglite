@@ -9,11 +9,14 @@ export default defineNuxtConfig({
     client: {
       extensions: ['live'],
       options: {
-        dataDir: 'idb://nuxt-pglite',
+        // dataDir: 'memory://nuxt-pglite',
+        // dataDir: 'idb://nuxt-pglite',
+        dataDir: 'opfs-ahp://nuxt-pglite',
       },
     },
     server: {
       options: {
+        // dataDir: 'memory://nuxt-pglite',
         dataDir: './database/pglite',
       },
     },

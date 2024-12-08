@@ -17,12 +17,12 @@ export interface ModuleOptions {
   client?: {
     enabled?: boolean
     extensions?: ExtensionName[]
-    options?: Omit<PGliteWorkerOptions, 'extensions'>
+    options?: Omit<PGliteWorkerOptions, 'extensions' | 'fs'>
   }
   server?: {
     enabled?: boolean
     extensions?: ExtensionName[]
-    options?: Omit<PGliteOptions, 'extensions'>
+    options?: Omit<PGliteOptions, 'extensions' | 'fs'>
   }
 }
 
