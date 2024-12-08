@@ -19,8 +19,7 @@ A Nuxt module aimed to simplify the use of [PGlite](https://pglite.dev).
 ## Features
 
 <!-- Highlight some of the features your module provide here -->
-- 🧑‍💻 &nbsp;Client side `usePGlite`, running in the JS main thread.
-- 🖥️ &nbsp;Client side `usePGliteWorker`, running inside Web Workers.
+- 🧑‍💻 &nbsp;Client side `usePGlite`, running inside Web Workers.
 - ⚡️ &nbsp;Server side `usePGlite`, running in your Node or Bun server.
 
 ## Quick Setup
@@ -33,6 +32,48 @@ npx nuxi module add nuxt-pglite
 
 That's it! You can now use Nuxt PGlite in your Nuxt app ✨
 
+### Persisten Storage
+
+By default this module will persist data in memory. You can set where to store data in your `nuxt.config.ts`:
+```ts
+export default defineNuxtConfig({
+  modules: ['nuxt-pglite'],
+
+  pglite: {
+    client: {
+      options: {
+        dataDir: 'idb://nuxt-pglite',
+      },
+    },
+    server: {
+      options: {
+        dataDir: './database/pglite',
+      },
+    },
+  },
+})
+```
+
+### Extensions
+
+Extensions are automatically configured with full type support and can be added via `nuxt.config.ts`:
+
+```ts
+export default defineNuxtConfig({
+  modules: ['nuxt-pglite'],
+
+  pglite: {
+    client: {
+      extensions: ['live', 'electricSync'],
+    },
+  },
+})
+```
+
+For a full list of available extensions please refer to [the official docs](https://pglite.dev/extensions). If a new extension is missing feel free to open up a new PR by adding it to [this file](/src/templates.ts#L62-L87), (I do plan to support only official and contrib).
+
+> [!WARNING]  
+> Auto configuration for server-side extensions is currently not supported, make sure to pass them during the first time calling `usePGlite`.
 
 ## Contribution
 
