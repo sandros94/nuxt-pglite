@@ -3,6 +3,9 @@ export default defineNuxtConfig({
   imports: { autoImport: true },
 
   devtools: { enabled: true },
+  future: {
+    compatibilityVersion: 4,
+  },
   compatibilityDate: '2024-08-29',
 
   pglite: {
