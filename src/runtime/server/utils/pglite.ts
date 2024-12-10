@@ -1,15 +1,13 @@
-import { PGlite } from '@electric-sql/pglite'
-
+import type { PGlite, PGliteOptions, PGliteServerOptions } from '#pglite-utils'
+import { pgliteHooks, pgliteCreate } from '#pglite-utils'
 import { useRuntimeConfig } from '#imports'
-import type { PGliteServer, PGliteServerOptions } from '#pglite-utils'
-import { pgliteHooks } from '#pglite-utils'
 
 // TODO: wait for Nuxt 3.15 https://github.com/nuxt/nuxt/pull/29320#issuecomment-2529372256
 // import { extensions } from '#nitro-build/pglite-extensions'
 
-let pglite: PGliteServer | undefined
+let pglite: PGlite<PGliteServerOptions> | undefined
 export function usePGlite() {
-  const options: PGliteServerOptions = {
+  const options: PGliteOptions = {
     ...useRuntimeConfig().pglite,
     // extensions,
   }
@@ -20,9 +18,10 @@ export function usePGlite() {
       console.error('[pglite] Error in `pglite:config` hook. Callback must be synchronous.')
     }
 
-    pglite = new PGlite(options) as PGliteServer<typeof options.extensions>
+    // @ts-expect-error `playground` types interfere with `src`
+    pglite = pgliteCreate<PGliteServerOptions>(options)
   }
 
   pgliteHooks.callHook('pglite', pglite)
-  return pglite as PGliteServer<typeof options.extensions>
+  return pglite
 }

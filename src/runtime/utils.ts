@@ -1,7 +1,21 @@
-import type { Extensions, PGlite, PGliteOptions, PGliteInterfaceExtensions } from '@electric-sql/pglite'
-import type { PGliteWorker, PGliteWorkerOptions } from '@electric-sql/pglite/worker'
+import type { Extensions, PGliteOptions, PGliteInterfaceExtensions } from '@electric-sql/pglite'
+import { PGliteWorker as _PGliteWorker } from '@electric-sql/pglite/worker'
+import { PGlite as _PGlite } from '@electric-sql/pglite'
 import type { HookResult } from '@nuxt/schema'
 import { createHooks } from 'hookable'
+
+import type {
+  extensions as clientExtensions,
+} from '#build/pglite/extensions'
+
+export type { Extensions, PGliteOptions }
+export type PGliteWorkerOptions<E extends Extensions = Extensions> = PGliteOptions<E> & {
+  meta?: any
+  id?: string
+}
+
+export type PGlite<O extends PGliteOptions = PGliteOptions> = _PGlite & PGliteInterfaceExtensions<O['extensions']>
+export type PGliteWorker<O extends PGliteWorkerOptions = PGliteWorkerOptions> = _PGliteWorker & PGliteInterfaceExtensions<O['extensions']>
 
 export interface PGliteClientExtensions extends Extensions {
 }
@@ -9,44 +23,48 @@ export interface PGliteServerExtensions extends Extensions {
 }
 
 export interface PGliteClientOptions<
-  E extends PGliteClientExtensions = PGliteClientExtensions,
+  E extends Extensions = Extensions,
 > extends PGliteWorkerOptions {
-  extensions?: E
+  extensions?: E & PGliteClientExtensions
 }
 export interface PGliteServerOptions<
-  E extends PGliteServerExtensions = PGliteServerExtensions,
+  E extends Extensions = Extensions,
 > extends PGliteOptions {
-  extensions?: E
+  extensions?: E & PGliteServerExtensions
 }
 
-export type PGliteClient<
-  E extends PGliteClientOptions['extensions'] = PGliteClientOptions['extensions'],
-> = PGliteWorker & PGliteInterfaceExtensions<E>
-export type PGliteServer<
-  E extends PGliteServerOptions['extensions'] = PGliteServerOptions['extensions'],
-> = PGlite & PGliteInterfaceExtensions<E>
-
 export interface PGliteClientHooks {
-  'pglite:config': (options: PGliteClientOptions) => void
-  'pglite': <
-    E extends PGliteClientOptions['extensions'] = PGliteClientOptions['extensions'],
-  >(pg: PGliteClient<E>) => HookResult
+  /**
+   * Called before creating a PGlite instance
+   */
+  'pglite:config': (options: PGliteWorkerOptions) => void
+  /**
+   * Called after creating a PGlite instance
+   */
+  'pglite': (pg: PGliteWorker<PGliteClientOptions<typeof clientExtensions>>) => HookResult
 }
 export interface PGliteServerHooks {
   /**
    * Called before creating a PGlite instance
    */
-  'pglite:config': (options: PGliteServerOptions) => void
+  'pglite:config': (options: PGliteOptions) => void
   /**
    * Called after creating a PGlite instance
    */
-  'pglite': <
-    E extends PGliteServerOptions['extensions'] = PGliteServerOptions['extensions'],
-  >(pg: PGliteServer<E>) => HookResult
+  'pglite': (pg: PGlite<PGliteServerOptions>) => HookResult // TODO: add server extensions
 }
 
 export const pgliteHooks = createHooks<PGliteServerHooks>()
 
-export function isReady<T extends (PGliteClient | PGliteServer)>(pg: T | undefined): pg is T {
-  return Boolean(pg?.ready)
+export function pgliteCreate<O extends PGliteOptions>(options?: O): PGlite<O> {
+  return new _PGlite(options) as any
+}
+export function pgliteWorkerCreate<O extends PGliteWorkerOptions>(options?: O): PGliteWorker<O> {
+  return new _PGliteWorker(
+    new Worker(new URL('./app/worker/pglite.js?worker', import.meta.url), {
+      name: 'pglite-worker',
+      type: 'module',
+    }),
+    options,
+  ) as any
 }

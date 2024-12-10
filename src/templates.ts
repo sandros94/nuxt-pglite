@@ -11,10 +11,11 @@ export async function addTemplates(options: ModuleOptions) {
   addTemplate({
     write: true,
     filename: 'pglite/extensions.ts',
-    async getContents() {
-      if (clientExts === undefined) return `export const extensions = undefined
+    getContents() {
+      if (clientExts === undefined) return `export const extensions = {}
 
-export default { extensions }`
+export default { extensions }
+`
       else return `${clientExts.imports.join('\n')}
 
 export const extensions = {
@@ -27,10 +28,11 @@ export default { extensions }
   })
   addServerTemplate({
     filename: '#nitro-build/pglite-extensions.ts',
-    async getContents() {
-      if (serverExts === undefined) return `export const extensions = undefined
+    getContents() {
+      if (serverExts === undefined) return `export const extensions = {}
 
-export default { extensions }`
+export default { extensions }
+`
       else return `${serverExts.imports.join('\n')}
 
 export const extensions = {
