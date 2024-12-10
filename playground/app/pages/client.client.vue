@@ -37,7 +37,7 @@ interface Record {
   name: typeof names[number]
 }
 
-const names = ['Marco', 'Polo', 'Leonardo', 'Da Vinci', 'Michelangelo', 'Raffaello', 'Donatello'] as const
+const names = ['Buonarroti', 'Da Vinci', 'di Niccolò di Betto Bardi', 'Sanzio'] as const
 const data = ref<Results<Record> | undefined>()
 let live: LiveQuery<Record> | undefined = undefined
 

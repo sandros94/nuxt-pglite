@@ -7,6 +7,6 @@ export default eventHandler((_event) => {
 })
 
 const getRandomName = () => {
-  const names = ['Bob', 'Jane', 'John', 'Sally', 'Kate', 'Lisa', 'Mary', 'Anna', 'Elizabeth', 'Ashley', 'Sarah']
+  const names = ['Buonarroti', 'Da Vinci', 'di Niccolò di Betto Bardi', 'Sanzio'] as const
   return names[Math.floor(Math.random() * names.length)]
 }
