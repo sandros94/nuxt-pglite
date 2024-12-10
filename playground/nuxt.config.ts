@@ -10,7 +10,7 @@ export default defineNuxtConfig({
 
   pglite: {
     client: {
-      extensions: ['live'],
+      // extensions: ['live'],
       options: {
         // dataDir: 'memory://nuxt-pglite',
         dataDir: 'idb://nuxt-pglite',

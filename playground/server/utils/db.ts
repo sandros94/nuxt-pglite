@@ -1,9 +1,8 @@
-import { vector } from '@electric-sql/pglite/vector'
 import { drizzle } from 'drizzle-orm/pglite'
 import * as schema from '../database/schema'
 
 export function useDB() {
-  const pg = usePGlite({ vector })
+  const pg = usePGlite()
   return drizzle(pg, { schema })
 }
 
