@@ -17,6 +17,7 @@ export interface ModuleOptions {
   client?: {
     enabled?: boolean
     extensions?: ExtensionName[]
+    liveQuery?: boolean
     options?: Omit<PGliteWorkerOptions, 'extensions' | 'fs'>
   }
   server?: {
@@ -34,6 +35,7 @@ export default defineNuxtModule<ModuleOptions>({
   defaults: {
     client: {
       enabled: true,
+      liveQuery: false,
     },
     server: {
       enabled: true,
@@ -83,6 +85,19 @@ export default defineNuxtModule<ModuleOptions>({
           from: resolve(runtimeDir, 'app', 'composables', 'pglite'),
         },
       ])
+
+      if (options.client?.liveQuery || options.client?.extensions?.includes('live')) {
+        addImports([
+          {
+            name: 'useLiveQuery',
+            from: resolve(runtimeDir, 'app', 'composables', 'live-query'),
+          },
+          {
+            name: 'useLiveIncrementalQuery',
+            from: resolve(runtimeDir, 'app', 'composables', 'live-query'),
+          },
+        ])
+      }
     }
     if (options.server?.enabled !== false) {
       addServerImports([
