@@ -19,7 +19,7 @@ export default { extensions }
       else return `${clientExts.imports.join('\n')}
 
 export const extensions = {
-  ${clientExts.extensions.join('\n  ')}
+  ${clientExts.extensions.join(',\n  ')}
 }
 
 export default { extensions }
