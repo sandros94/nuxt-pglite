@@ -52,6 +52,7 @@ export default defineNuxtModule<ModuleOptions>({
     const runtimeDir = resolve('./runtime')
     nuxt.options.build.transpile.push(runtimeDir)
     nuxt.options.alias['#pglite'] = resolve(runtimeDir)
+    nuxt.options.alias['#pglite-utils'] = resolve(runtimeDir, 'utils')
 
     nuxt.options.runtimeConfig.public.pglite = defu(
       nuxt.options.runtimeConfig.public.pglite,
@@ -73,8 +74,9 @@ export default defineNuxtModule<ModuleOptions>({
 
     if (options.client?.enabled !== false) {
       addPlugin({
+        mode: 'client',
         src: resolve(runtimeDir, 'app', 'plugins', 'pglite'),
-      }, { append: true })
+      })
       addImports([
         {
           name: 'usePGlite',

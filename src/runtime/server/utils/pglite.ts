@@ -1,19 +1,28 @@
-import type { PGliteInterfaceExtensions, PGliteOptions } from '@electric-sql/pglite'
 import { PGlite } from '@electric-sql/pglite'
 
 import { useRuntimeConfig } from '#imports'
+import type { PGliteServer, PGliteServerOptions } from '#pglite-utils'
+import { pgliteHooks } from '#pglite-utils'
+
+// TODO: wait for Nuxt 3.15 https://github.com/nuxt/nuxt/pull/29320#issuecomment-2529372256
 // import { extensions } from '#nitro-build/pglite-extensions'
 
-type PGliteInterface<E> = PGlite & PGliteInterfaceExtensions<E>
-
-let pglite: PGliteInterface<unknown> | undefined
-export function usePGlite<T extends PGliteOptions['extensions']>(extensions?: T): PGliteInterface<T> {
-  if (!pglite) {
-    pglite = new PGlite({
-      ...useRuntimeConfig().pglite,
-      extensions,
-    }) as PGliteInterface<T>
+let pglite: PGliteServer | undefined
+export function usePGlite() {
+  const options: PGliteServerOptions = {
+    ...useRuntimeConfig().pglite,
+    // extensions,
   }
 
-  return pglite as PGliteInterface<T>
+  if (!pglite || pglite.closed) {
+    const results = pgliteHooks.callHookWith(hooks => hooks.map(hook => hook(options)), 'pglite:config', options)
+    if (import.meta.dev && results && results.some(i => i && 'then' in i)) {
+      console.error('[pglite] Error in `pglite:config` hook. Callback must be synchronous.')
+    }
+
+    pglite = new PGlite(options) as PGliteServer<typeof options.extensions>
+  }
+
+  pgliteHooks.callHook('pglite', pglite)
+  return pglite as PGliteServer<typeof options.extensions>
 }
