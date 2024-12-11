@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.2.8
+
+[compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.2.7...v0.2.8)
+
+### 🩹 Fixes
+
+- **live:** Accept nullish params in composables ([345df9e](https://github.com/sandros94/nuxt-pglite/commit/345df9e))
+
+### ❤️ Contributors
+
+- Sandros94 ([@sandros94](http://github.com/sandros94))
+
 ## v0.2.7
 
 [compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.2.6...v0.2.7)
