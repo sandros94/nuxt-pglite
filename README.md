@@ -77,15 +77,53 @@ export default defineNuxtConfig({
 For a full list of available extensions please refer to [the official docs](https://pglite.dev/extensions). If a new extension is missing feel free to open up a new PR by adding it to [this file](/src/templates.ts#L62-L87). I do plan to support only official and contrib extensions.
 
 > [!WARNING]  
-> Auto configuration for server-side extensions will be supported once Nuxt `v3.15` gets released. See below how to use hooks to add extensions server side.
+> Auto configuration for server-side extensions will be supported once Nuxt `v3.15` gets released. See below how to use hooks to add extensions server-side.
 
-### Hooks
+## Live Queries
+
+With Live Queries we can subscrive to events happening in the database and reactively update the user interface. This becomes particularly usefuly client-side thanks to Web Workers, allowing us to keep content in sync even when the user opens up multiple tabs.
+
+To get started simply add `live` extension to your `nuxt.config.ts`:
+
+```ts
+export default defineNuxtConfig({
+  modules: ['nuxt-pglite'],
+
+  pglite: {
+    client: {
+      extensions: [
+        // ...
+        'live',
+      ],
+    },
+  },
+})
+```
+
+This will enable auto-import for `useLiveQuery` and `useLiveIncrementalQuery`. The quick implementation would be:
+
+```vue
+<script setup lang="ts">
+const maxNumber = ref(100)
+const items = useLiveQuery.sql`
+  SELECT *
+  FROM my_table
+  WHERE number <= ${maxNumber.value}
+  ORDER BY number;
+`
+</script>
+```
+
+Live queries are currently a port of the upstream implementation, you can read more [here](https://pglite.dev/docs/framework-hooks/vue#uselivequery).
+
+## Hooks
 
 We can use hooks to customize or extend PGlite at runtime. This becomes particularly useful in conjunction with [`RLS`](https://www.postgresql.org/docs/current/ddl-rowsecurity.html) or adding custom extensions server-side.
 
-#### RLS
+### RLS
 
-Lets take in example a basic implementation with `nuxt-auth-utils`. We'll need to create a client-only Nuxt plugin `/plugins/rls.client.ts`:
+PGlite supports RLS out of the box, but being a single-user/single-connection database it is more frequent to be used only client side. Lets take in example a basic implementation with `nuxt-auth-utils`. We'll need to create a client-only Nuxt plugin `/plugins/rls.client.ts`:
+
 ```ts
 export default defineNuxtPlugin((nuxtApp) => {
   const { user } = useUserSession()
@@ -98,7 +136,9 @@ export default defineNuxtPlugin((nuxtApp) => {
 })
 ```
 
-#### Customizing extensions
+This, in combination with [`Sync`](https://pglite.dev/docs/sync), will make us able to create an offline-first application with the ability for the users to save their data in a centralized postgres instance.
+
+### Customizing extensions
 
 We can also use hooks to pass custom options to extensions like [`Sync`](https://pglite.dev/docs/sync) as well as improve typing for the whole project.
 
@@ -136,7 +176,7 @@ declare module '#pglite-utils' {
 > [!WARNING]  
 > Until Nuxt `v3.15` gets released this is the only way to add extensions server-side.
 
-#### Hooking Notes
+### Hooking Notes
 
 A few things to consider are that:
 - we rely on `nuxtApp` hooks for client-side, while `pgliteHooks` imported from `#pglite-utils` for server-side, hooks available are:
