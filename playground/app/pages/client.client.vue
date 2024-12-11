@@ -11,7 +11,7 @@
       PGlite is {{ db?.ready ? 'ready' : 'not ready' }}
     </h2>
     <button @click="reset()">
-      Init DB
+      Reset DB
     </button>
     <button @click="insert()">
       Insert
@@ -64,12 +64,12 @@ await query()
   .then(async () => await subscribe())
 
 async function query() {
-  return data.value = await db.query<Record>('SELECT * FROM test')
+  return data.value = await db.query<Record>('SELECT * FROM test;')
 }
 
 async function subscribe() {
   if (live) return
-  live = await db.live.query<Record>('SELECT * FROM test', [], (res) => {
+  live = await db.live.query<Record>('SELECT * FROM test;', [], (res) => {
     data.value = res
   })
 }
@@ -81,11 +81,10 @@ onBeforeRouteLeave(() => {
 async function insert() {
   await db
     .query(
-      `INSERT INTO test (name) VALUES ($1)`,
+      `INSERT INTO test (name) VALUES ($1);`,
       [
         names[Math.floor(Math.random() * names.length)],
       ],
     )
-    .then(() => query())
 }
 </script>
