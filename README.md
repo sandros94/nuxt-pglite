@@ -144,6 +144,22 @@ A few things to consider are that:
   - `pglite`: called on every PGlite execution.
 - To improve types when manually adding extensions we use `PGliteClientExtensions` and `PGliteServerExtensions` for client and server respectively.
 
+## ORM support
+
+Any ORM that accept a PGlite instance should be supported both server and client side.
+
+### Drizzle
+
+Drizzle integration is as simple as:
+```ts
+import { drizzle } from 'drizzle-orm/pglite'
+import * as schema from '../my-path-to/schema'
+
+export function useDB() {
+  return drizzle(usePGlite(), { schema })
+}
+```
+
 ## Contribution
 
 <details>
