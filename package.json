@@ -14,7 +14,8 @@
   },
   "build": {
     "externals": [
-      "defu"
+      "defu",
+      "hookable"
     ]
   },
   "exports": {

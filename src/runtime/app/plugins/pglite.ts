@@ -1,5 +1,6 @@
+import type { HookResult } from '@nuxt/schema'
 import { defineNuxtPlugin, useRuntimeConfig } from '#imports'
-import type { PGliteClientHooks, PGliteClientOptions, PGliteWorkerOptions } from '#pglite-utils'
+import type { PGliteClientOptions, PGliteWorker, PGliteWorkerOptions } from '#pglite-utils'
 import { pgliteWorkerCreate } from '#pglite-utils'
 import { extensions } from '#build/pglite/extensions'
 
@@ -27,7 +28,7 @@ export default defineNuxtPlugin({
       },
     })
 
-    nuxtApp.callHook('pglite', pglite)
+    nuxtApp.callHook('pglite', pglite as PGliteWorker<PGliteClientOptions<typeof extensions>>)
 
     return {
       provide: {
@@ -36,6 +37,17 @@ export default defineNuxtPlugin({
     }
   },
 })
+
+export interface PGliteClientHooks {
+  /**
+   * Called before creating a PGlite instance
+   */
+  'pglite:config': (options: PGliteWorkerOptions<typeof extensions>) => void
+  /**
+   * Called after creating a PGlite instance
+   */
+  'pglite': (pg: PGliteWorker<PGliteClientOptions<typeof extensions>>) => HookResult
+}
 
 declare module '#app' {
   interface RuntimeNuxtHooks extends PGliteClientHooks {}

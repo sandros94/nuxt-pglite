@@ -13,6 +13,8 @@ import { defu } from 'defu'
 import type { ExtensionName } from './runtime/types'
 import { addTemplates } from './templates'
 
+export type * from './runtime/types'
+
 export interface ModuleOptions {
   client?: {
     enabled?: boolean
