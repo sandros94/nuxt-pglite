@@ -14,7 +14,8 @@ import {
   ref,
   isRef,
   unref,
-  usePGlite } from '#imports'
+  usePGlite,
+} from '#imports'
 import type {
   Extensions,
   PGlite,
