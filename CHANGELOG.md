@@ -1,6 +1,29 @@
 # Changelog
 
 
+## v0.2.5
+
+[compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.2.4...v0.2.5)
+
+### 🚀 Enhancements
+
+- Hooking system to extend PGlite options ([68650bc](https://github.com/sandros94/nuxt-pglite/commit/68650bc))
+- `useLiveQuery` composables ([b192662](https://github.com/sandros94/nuxt-pglite/commit/b192662))
+
+### 🩹 Fixes
+
+- Type support and client extensions ([66361f9](https://github.com/sandros94/nuxt-pglite/commit/66361f9))
+- Throw error when `usePGlite` composable is being called server side ([5a7902b](https://github.com/sandros94/nuxt-pglite/commit/5a7902b))
+- Missing trailing comma in template ([2c54b5d](https://github.com/sandros94/nuxt-pglite/commit/2c54b5d))
+
+### 📖 Documentation
+
+- Update readme ([5653051](https://github.com/sandros94/nuxt-pglite/commit/5653051))
+
+### ❤️ Contributors
+
+- Sandros94 ([@sandros94](http://github.com/sandros94))
+
 ## v0.2.4
 
 [compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.2.3...v0.2.4)
