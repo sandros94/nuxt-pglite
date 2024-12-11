@@ -38,6 +38,8 @@ export default defineNuxtPlugin({
   },
 })
 
+export type PGliteInstance = PGliteWorker<PGliteClientOptions<typeof extensions>>
+
 export interface PGliteClientHooks {
   /**
    * Called before creating a PGlite instance
@@ -46,9 +48,12 @@ export interface PGliteClientHooks {
   /**
    * Called after creating a PGlite instance
    */
-  'pglite': (pg: PGliteWorker<PGliteClientOptions<typeof extensions>>) => HookResult
+  'pglite': (pg: PGliteInstance) => HookResult
 }
 
 declare module '#app' {
   interface RuntimeNuxtHooks extends PGliteClientHooks {}
+  interface NuxtApp {
+    $pglite: PGliteInstance
+  }
 }
