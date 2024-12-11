@@ -14,13 +14,14 @@ A Nuxt module aimed to simplify the use of [PGlite](https://pglite.dev).
 <!-- - [📖 &nbsp;Documentation](https://example.com) -->
 
 > [!WARNING]  
-> This is an highly experimental project. No docs are available (although planned), please refer to the [playground code](/playground).
+> No docs are available (although planned), please refer to the [playground code](/playground).
 
 ## Features
 
 <!-- Highlight some of the features your module provide here -->
-- 🧑‍💻 &nbsp;Client side `usePGlite`, running inside Web Workers.
-- ⚡️ &nbsp;Server side `usePGlite`, running in your Node or Bun server.
+- ⚡️&nbsp;Server-side `usePGlite`, running in your Node or Bun server.
+- 🧑‍💻&nbsp;Client-side `usePGlite`, running inside Web Workers.
+- 🪢&nbsp;Client-side `useLiveQuery` and `useLiveIncrementalQuery` to subscribe to live changes.
 
 ## Quick Setup
 
@@ -32,9 +33,9 @@ npx nuxi module add nuxt-pglite
 
 That's it! You can now use Nuxt PGlite in your Nuxt app ✨
 
-### Persisten Storage
+### Storage
 
-You can set where to store data in your `nuxt.config.ts`:
+You can configure where to store data in your `nuxt.config.ts`. Server-side storage accepts relative baths:
 
 ```ts
 export default defineNuxtConfig({
@@ -48,7 +49,7 @@ export default defineNuxtConfig({
     },
     server: {
       options: {
-        dataDir: './database/pglite',
+        dataDir: './database/pglite', // will use `~~/server/database/pglite`
       },
     },
   },
@@ -73,17 +74,75 @@ export default defineNuxtConfig({
 })
 ```
 
-For a full list of available extensions please refer to [the official docs](https://pglite.dev/extensions). If a new extension is missing feel free to open up a new PR by adding it to [this file](/src/templates.ts#L62-L87), (I do plan to support only official and contrib).
+For a full list of available extensions please refer to [the official docs](https://pglite.dev/extensions). If a new extension is missing feel free to open up a new PR by adding it to [this file](/src/templates.ts#L62-L87). I do plan to support only official and contrib extensions.
 
 > [!WARNING]  
-> Auto configuration for server-side extensions is currently not supported, the simplest approach is to create a wrapper util like `/server/utils/db.ts`:
-> ```ts
-> import { vector } from '@electric-sql/pglite/vector'
->
-> export function useDB() {
->   return usePGlite({ vector })
-> }
-> ```
+> Auto configuration for server-side extensions will be supported once Nuxt `v3.15` gets released. See below how to use hooks to add extensions server side.
+
+### Hooks
+
+We can use hooks to customize or extend PGlite at runtime. This becomes particularly useful in conjunction with [`RLS`](https://www.postgresql.org/docs/current/ddl-rowsecurity.html) or adding custom extensions server-side.
+
+#### RLS
+
+Lets take in example a basic implementation with `nuxt-auth-utils`. We'll need to create a client-only Nuxt plugin `/plugins/rls.client.ts`:
+```ts
+export default defineNuxtPlugin((nuxtApp) => {
+  const { user } = useUserSession()
+
+  if (user) {
+    nuxtApp.hook('pglite:config', (options) => {
+      options.username = user.id
+    })
+  }
+})
+```
+
+#### Customizing extensions
+
+We can also use hooks to pass custom options to extensions like [`Sync`](https://pglite.dev/docs/sync) as well as improve typing for the whole project.
+
+In the following example we are creating a `/server/plugins/extend-pglite.ts` plugin that adds and configure `pgvector` and `Sync`:
+
+```ts
+import { vector } from '@electric-sql/pglite/vector'
+import { electricSync } from '@electric-sql/pglite-sync'
+
+import { pgliteHooks } from '#pglite-utils'
+
+export default defineNitroPlugin(() => {
+  pgliteHooks.hook('pglite:config', (options) => {
+    options.extensions = {
+      vector,
+      electric: electricSync({
+        metadataSchema: 'my-electric',
+      }),
+    }
+  })
+
+  pgliteHooks.hookOnce('pglite', async (pg) => {
+    await pg.query('CREATE EXTENSION IF NOT EXISTS vector;')
+  })
+})
+
+declare module '#pglite-utils' {
+  interface PGliteServerExtensions {
+    vector: typeof vector
+    electric: ReturnType<typeof electricSync>
+  }
+}
+```
+
+> [!WARNING]  
+> Until Nuxt `v3.15` gets released this is the only way to add extensions server-side.
+
+#### Hooking Notes
+
+A few things to consider are that:
+- we rely on `nuxtApp` hooks for client-side, while `pgliteHooks` imported from `#pglite-utils` for server-side, hooks available are:
+  - `pglite:config`: provides access to `PGliteOptions` before initializing a new PGlite instance.
+  - `pglite`: called on every PGlite execution.
+- To improve types when manually adding extensions we use `PGliteClientExtensions` and `PGliteServerExtensions` for client and server respectively.
 
 ## Contribution
 
