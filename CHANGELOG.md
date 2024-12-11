@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.2.7
+
+[compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.2.6...v0.2.7)
+
+### 🩹 Fixes
+
+- More module type fixes ([0a6e41f](https://github.com/sandros94/nuxt-pglite/commit/0a6e41f))
+
+### ❤️ Contributors
+
+- Sandros94 ([@sandros94](http://github.com/sandros94))
+
 ## v0.2.6
 
 [compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.2.5...v0.2.6)
