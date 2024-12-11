@@ -1,6 +1,19 @@
 # Changelog
 
 
+## v0.2.6
+
+[compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.2.5...v0.2.6)
+
+### 🩹 Fixes
+
+- Only pass supported extensions to client worker ([96f9ae1](https://github.com/sandros94/nuxt-pglite/commit/96f9ae1))
+- Module type exports ([1057f5b](https://github.com/sandros94/nuxt-pglite/commit/1057f5b))
+
+### ❤️ Contributors
+
+- Sandros94 ([@sandros94](http://github.com/sandros94))
+
 ## v0.2.5
 
 [compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.2.4...v0.2.5)
