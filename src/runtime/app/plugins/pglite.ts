@@ -9,7 +9,6 @@ export default defineNuxtPlugin({
   async setup(nuxtApp) {
     const options: PGliteWorkerOptions<typeof extensions> = {
       ...useRuntimeConfig().public.pglite,
-      // TODO: only pick Worker compatible extensions (currently `live` and `electricSync`)
       extensions,
     }
     const results = nuxtApp.hooks.callHookWith(hooks => hooks.map(hook => hook(options)), 'pglite:config', options)
@@ -17,7 +16,16 @@ export default defineNuxtPlugin({
       console.error('[pglite] Error in `pglite:config` hook. Callback must be synchronous.')
     }
 
-    const pglite = pgliteWorkerCreate<PGliteClientOptions<typeof extensions>>(options)
+    // @ts-expect-error only extract supported extensions
+    const { live, electric } = options.extensions || {}
+
+    const pglite = pgliteWorkerCreate<PGliteClientOptions<typeof extensions>>({
+      ...options,
+      extensions: {
+        ...(live?.setup !== undefined ? { live } : {}),
+        ...(electric?.setup !== undefined ? { electric } : {}),
+      },
+    })
 
     nuxtApp.callHook('pglite', pglite)
 
