@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v0.2.9
+
+[compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.2.8...v0.2.9)
+
+### 🩹 Fixes
+
+- Accept getters in live params arrays ([088bc22](https://github.com/sandros94/nuxt-pglite/commit/088bc22))
+
+### ❤️ Contributors
+
+- Sandros94 ([@sandros94](http://github.com/sandros94))
+
 ## v0.2.8
 
 [compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.2.7...v0.2.8)
