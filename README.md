@@ -231,6 +231,10 @@ export function useDB() {
 
 </details>
 
+## License
+
+Published under the [MIT](/LICENSE) license.
+
 
 <!-- Badges -->
 [npm-version-src]: https://img.shields.io/npm/v/nuxt-pglite/latest.svg?style=flat&colorA=020420&colorB=00DC82
