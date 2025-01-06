@@ -1,5 +1,4 @@
-import type { NuxtServerTemplate } from '@nuxt/schema'
-import { addTemplate, useNuxt } from '@nuxt/kit'
+import { addServerTemplate, addTemplate } from '@nuxt/kit'
 
 import type { ExtensionName } from './runtime/types'
 import type { ModuleOptions } from './module'
@@ -90,14 +89,4 @@ const extensionSources = {
   tsm_system_rows: '@electric-sql/pglite/contrib/tsm_system_rows',
   tsm_system_time: '@electric-sql/pglite/contrib/tsm_system_time',
   uuid_ossp: '@electric-sql/pglite/contrib/uuid_ossp',
-}
-
-// TODO: fix '@nuxt/kit'
-export function addServerTemplate(template: NuxtServerTemplate) {
-  const nuxt = useNuxt()
-
-  nuxt.options.nitro.virtual ||= {}
-  nuxt.options.nitro.virtual[template.filename] = template.getContents
-
-  return template
 }
