@@ -2,14 +2,14 @@ import type { PGlite, PGliteOptions, PGliteServerOptions } from '#pglite-utils'
 import { pgliteHooks, pgliteCreate } from '#pglite-utils'
 import { useRuntimeConfig } from '#imports'
 
-// TODO: wait for Nuxt 3.15 https://github.com/nuxt/nuxt/pull/29320#issuecomment-2529372256
-// import { extensions } from '#nitro-build/pglite-extensions'
+// @ts-ignore Nitro virtual fs
+import { extensions } from '#pglite/server-extensions.js'
 
 let pglite: PGlite<PGliteServerOptions> | undefined
 export function usePGlite() {
   const options: PGliteOptions = {
     ...useRuntimeConfig().pglite,
-    // extensions,
+    extensions,
   }
 
   if (!pglite || pglite.closed) {

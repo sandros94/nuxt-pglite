@@ -18,7 +18,7 @@ export default { extensions }
       else return `${clientExts.imports.join('\n')}
 
 export const extensions = {
-  ${clientExts.extensions.join(',\n  ')}
+  ${clientExts.extensions.join(',\n\t')}
 }
 
 export default { extensions }
@@ -26,7 +26,7 @@ export default { extensions }
     },
   })
   addServerTemplate({
-    filename: '#nitro-build/pglite-extensions.ts',
+    filename: '#pglite/server-extensions.js',
     getContents() {
       if (serverExts === undefined) return `export const extensions = {}
 
@@ -35,7 +35,7 @@ export default { extensions }
       else return `${serverExts.imports.join('\n')}
 
 export const extensions = {
-  ${serverExts.extensions.join(',\n  ')}
+  ${serverExts.extensions.join(',\n\t')}
 }
 
 export default { extensions }
