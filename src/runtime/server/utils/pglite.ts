@@ -7,7 +7,7 @@ import { extensions } from '#pglite/server-extensions.js'
 
 let pglite: PGlite<PGliteServerOptions> | undefined
 export function usePGlite() {
-  const options: PGliteOptions = {
+  const options: PGliteOptions<typeof extensions> = {
     ...useRuntimeConfig().pglite,
     extensions,
   }
@@ -18,7 +18,6 @@ export function usePGlite() {
       console.error('[pglite] Error in `pglite:config` hook. Callback must be synchronous.')
     }
 
-    // @ts-expect-error `playground` types interfere with `src`
     pglite = pgliteCreate<PGliteServerOptions>(options)
   }
 
