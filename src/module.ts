@@ -6,12 +6,14 @@ import {
   createResolver,
   defineNuxtModule,
 } from '@nuxt/kit'
-import type { PGliteWorkerOptions } from '@electric-sql/pglite/worker'
-import type { PGliteOptions } from '@electric-sql/pglite'
 import { defu } from 'defu'
 
-import type { ExtensionName } from './runtime/types'
 import { addTemplates } from './templates'
+import type {
+  ExtensionName,
+  PGliteOptions,
+  PGliteWorkerOptions,
+} from './runtime/types'
 
 export type * from './runtime/types'
 
