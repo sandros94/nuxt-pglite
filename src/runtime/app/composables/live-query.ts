@@ -14,6 +14,7 @@ import {
   ref,
   isRef,
   unref,
+  createError,
   usePGlite,
 } from '#imports'
 import type {
@@ -39,6 +40,12 @@ async function useLiveQueryImpl<T = { [key: string]: unknown }>(
   params?: QueryParams | WatchSource<QueryParams> | WatchSource<unknown>[],
   key?: string | WatchSource<string>,
 ): Promise<LiveQueryResults<T>> {
+  if (import.meta.server) throw createError({
+    statusCode: 500,
+    statusMessage: 'Client-side only',
+    message: '[pglite] `useLiveQuery()` and `useLiveIncrementalQuery()` composables should only be called client-side',
+  })
+
   const db = await usePGlite() as PGliteInstance<{ live: typeof live }>
 
   const liveUpdate = shallowReactive<
