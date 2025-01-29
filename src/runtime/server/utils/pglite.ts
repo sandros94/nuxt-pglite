@@ -1,5 +1,8 @@
+import { createDatabase } from 'db0'
+import _pglite from 'db0/connectors/pglite'
+
 import type { PGlite, PGliteServerOptions } from '#pglite-utils'
-import { pgliteHooks, pgliteCreate } from '#pglite-utils'
+import { pgliteHooks } from '#pglite-utils'
 import { useRuntimeConfig } from '#imports'
 
 // @ts-ignore Nitro virtual fs
@@ -13,9 +16,10 @@ export async function usePGlite() {
   }
 
   if (!pglite || pglite.closed) {
+    console.log('init pglite')
     await pgliteHooks.callHookParallel('pglite:config', options)
 
-    pglite = await pgliteCreate<PGliteServerOptions<typeof options.extensions>>(options)
+    pglite = await createDatabase(_pglite(options)).getInstance() as PGlite<PGliteServerOptions<typeof options.extensions>>
   }
 
   pgliteHooks.callHook('pglite', pglite)
