@@ -32,13 +32,13 @@ interface Record {
 }
 
 const names = ['Buonarroti', 'Da Vinci', 'di Niccolò di Betto Bardi', 'Sanzio'] as const
-const db = usePGlite()
+const db = await usePGlite()
 await db.exec(`CREATE TABLE IF NOT EXISTS test (
   id SERIAL PRIMARY KEY,
   name TEXT
 );`)
 
-const data = useLiveQuery<Record>('SELECT * FROM test;')
+const data = await useLiveQuery<Record>('SELECT * FROM test;')
 
 async function insert() {
   await db
