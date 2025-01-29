@@ -32,9 +32,13 @@ interface Record {
 }
 
 const names = ['Buonarroti', 'Da Vinci', 'di Niccolò di Betto Bardi', 'Sanzio'] as const
-const data = useLiveQuery<Record>('SELECT * FROM test;')
-
 const db = usePGlite()
+await db.exec(`CREATE TABLE IF NOT EXISTS test (
+  id SERIAL PRIMARY KEY,
+  name TEXT
+);`)
+
+const data = useLiveQuery<Record>('SELECT * FROM test;')
 
 async function insert() {
   await db
@@ -50,11 +54,4 @@ async function clear() {
   await db
     .query('DELETE FROM test;')
 }
-
-await callOnce('pglite:db:init', async () => {
-  await db.exec(`CREATE TABLE IF NOT EXISTS test (
-  id SERIAL PRIMARY KEY,
-  name TEXT
-);`)
-})
 </script>
