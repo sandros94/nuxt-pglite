@@ -34,12 +34,12 @@ type PGliteInstance<T extends Extensions> =
   | PGliteWorker<PGliteWorkerOptions<T>>
   | PGlite<PGliteOptions<T>>
 
-function useLiveQueryImpl<T = { [key: string]: unknown }>(
+async function useLiveQueryImpl<T = { [key: string]: unknown }>(
   query: string | WatchSource<string>,
   params?: QueryParams | WatchSource<QueryParams> | WatchSource<unknown>[],
   key?: string | WatchSource<string>,
-): LiveQueryResults<T> {
-  const db = usePGlite() as PGliteInstance<{ live: typeof live }>
+): Promise<LiveQueryResults<T>> {
+  const db = await usePGlite() as PGliteInstance<{ live: typeof live }>
 
   const liveUpdate = shallowReactive<
     | Omit<Results<T>, 'affectedRows'>
@@ -100,30 +100,30 @@ function useLiveQueryImpl<T = { [key: string]: unknown }>(
     { immediate: true },
   )
 
-  onScopeDispose(() => unsubscribeRef.value?.())
+  onScopeDispose(() => unsubscribeRef.value?.(), true)
 
   return toRefs(readonly(liveUpdate))
 }
 
-export function useLiveQuery<T = { [key: string]: unknown }>(
+export async function useLiveQuery<T = { [key: string]: unknown }>(
   query: string | WatchSource<string>,
   params?: QueryParams | WatchSource<QueryParams> | WatchSource<unknown>[],
-): LiveQueryResults<T> {
+): Promise<LiveQueryResults<T>> {
   return useLiveQueryImpl<T>(query, params)
 }
 
-useLiveQuery.sql = function <T = { [key: string]: unknown }>(
+useLiveQuery.sql = async function <T = { [key: string]: unknown }>(
   strings: TemplateStringsArray,
   ...values: any[]
-): LiveQueryResults<T> {
+): Promise<LiveQueryResults<T>> {
   const { query, params } = buildQuery(strings, ...values)
   return useLiveQueryImpl<T>(query, params)
 }
 
-export function useLiveIncrementalQuery<T = { [key: string]: unknown }>(
+export async function useLiveIncrementalQuery<T = { [key: string]: unknown }>(
   query: string | WatchSource<string>,
   params: QueryParams | WatchSource<QueryParams> | WatchSource<unknown>[],
   key: string | WatchSource<string>,
-): LiveQueryResults<T> {
+): Promise<LiveQueryResults<T>> {
   return useLiveQueryImpl<T>(query, params, key)
 }
