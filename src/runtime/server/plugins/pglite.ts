@@ -4,9 +4,9 @@ import { defineNitroPlugin, usePGlite } from '#imports'
 
 export default defineNitroPlugin((nitro) => {
   nitro.hooks.hookOnce('close', async () => {
-    const pg = usePGlite()
+    const pg = await usePGlite()
 
-    if (pg) {
+    if (pg && !pg.closed) {
       consola.log('`Nitro`: closing PGlite...')
       await pg.close()
 
