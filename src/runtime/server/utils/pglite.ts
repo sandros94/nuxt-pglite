@@ -16,12 +16,11 @@ export async function usePGlite() {
   }
 
   if (!pglite || pglite.closed) {
-    console.log('init pglite')
     await pgliteHooks.callHookParallel('pglite:config', options)
 
     pglite = await createDatabase(_pglite(options)).getInstance() as PGlite<PGliteServerOptions<typeof options.extensions>>
   }
 
-  pgliteHooks.callHook('pglite', pglite)
+  pgliteHooks.callHookParallel('pglite', pglite)
   return pglite
 }
