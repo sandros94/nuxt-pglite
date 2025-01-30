@@ -1,5 +1,5 @@
-export default eventHandler((_event) => {
-  const db = useDB()
+export default eventHandler(async (_event) => {
+  const db = await useDB()
 
   return db.insert(tables.test).values({
     name: getRandomName(),

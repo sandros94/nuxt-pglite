@@ -1,8 +1,8 @@
 import { drizzle } from 'drizzle-orm/pglite'
 import * as schema from '../database/schema'
 
-export function useDB() {
-  const pg = usePGlite()
+export async function useDB() {
+  const pg = await usePGlite()
   return drizzle(pg, { schema })
 }
 
