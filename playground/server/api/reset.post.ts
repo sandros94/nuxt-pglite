@@ -1,5 +1,5 @@
-export default defineEventHandler((_event) => {
-  const db = useDB()
+export default defineEventHandler(async (_event) => {
+  const db = await useDB()
 
   return db.delete(tables.test)
 })

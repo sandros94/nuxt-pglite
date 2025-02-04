@@ -26,8 +26,8 @@ export interface PGliteServerHooks {
 
 export const pgliteHooks = createHooks<PGliteServerHooks>()
 
-export function pgliteCreate<O extends PGliteOptions>(options?: O): PGlite<O> {
-  return new _PGlite(options) as any
+export async function pgliteCreate<O extends PGliteOptions>(options?: O): Promise<PGlite<O>> {
+  return await _PGlite.create(options)
 }
 export function pgliteWorkerCreate<O extends PGliteWorkerOptions>(options?: O): PGliteWorker<O> {
   return new _PGliteWorker(

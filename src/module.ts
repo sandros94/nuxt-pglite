@@ -1,6 +1,6 @@
+import type { HookResult } from '@nuxt/schema'
 import {
   addImports,
-  addPlugin,
   addServerImports,
   addServerPlugin,
   createResolver,
@@ -12,6 +12,8 @@ import { addTemplates } from './templates'
 import type {
   ExtensionName,
   PGliteOptions,
+  PGliteWorker,
+  PGliteClientOptions,
   PGliteWorkerOptions,
 } from './runtime/types'
 
@@ -79,10 +81,6 @@ export default defineNuxtModule<ModuleOptions>({
     }
 
     if (options.client?.enabled !== false) {
-      addPlugin({
-        mode: 'client',
-        src: resolve(runtimeDir, 'app', 'plugins', 'pglite'),
-      })
       addImports([
         {
           name: 'usePGlite',
@@ -116,3 +114,18 @@ export default defineNuxtModule<ModuleOptions>({
     addTemplates(options)
   },
 })
+
+interface PGliteClientHooks {
+  /**
+   * Called before creating a PGlite instance
+   */
+  'pglite:config': (options: PGliteClientOptions) => void
+  /**
+   * Called after creating a PGlite instance
+   */
+  'pglite': (pg: PGliteWorker<PGliteClientOptions>) => HookResult
+}
+
+declare module '#app' {
+  interface RuntimeNuxtHooks extends PGliteClientHooks {}
+}
