@@ -9,7 +9,6 @@
     "name": "Sandro Circi",
     "email": "sandro.circi@digitoolmedia.com"
   },
-  "packageManager": "pnpm@9.15.4",
   "build": {
     "externals": [
       "defu",
@@ -30,46 +29,45 @@
   ],
   "scripts": {
     "prepack": "nuxt-module-build build",
-    "dev": "nuxi dev playground",
-    "dev:build": "nuxi build playground",
-    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground",
-    "release": "nr lint && nr test:run && nr prepack && changelogen --release --push --publish",
+    "dev": "nuxt dev playground",
+    "dev:build": "nuxt build playground",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground && nuxt prepare docs",
+    "docs": "nuxt dev docs",
+    "docs:build": "nuxt build docs",
+    "docs:preview": "nuxt preview",
+    "release": "pnpm lint && pnpm test && pnpm prepack && changelogen --release --push --publish",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "vitest",
-    "test:run": "vitest run",
+    "test": "pnpm lint && pnpm test:types && vitest run",
     "test:watch": "vitest watch",
-    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit",
+    "test:types": "vue-tsc --noEmit && nuxt typecheck playground && nuxt typecheck docs",
     "db:push": "cd playground && drizzle-kit push --config=./drizzle.config.ts",
     "db:generate": "cd playground && drizzle-kit generate --config=./drizzle.config.ts",
     "db:migrate": "cd playground && drizzle-kit migrate --config=./drizzle.config.ts",
     "db:studio": "cd playground && drizzle-kit studio --config=./drizzle.config.ts"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.2.16",
-    "@electric-sql/pglite-sync": "^0.2.18",
-    "@nuxt/kit": "^3.15.3",
-    "db0": "^0.2.3"
+    "@electric-sql/pglite": "^0.3.11",
+    "@electric-sql/pglite-sync": "^0.3.15",
+    "@nuxt/kit": "^4.2.0",
+    "db0": "^0.3.4"
   },
   "devDependencies": {
-    "@nuxt/devtools": "^2.0.0-beta.3",
-    "@nuxt/eslint-config": "^0.7.5",
-    "@nuxt/module-builder": "^0.8.4",
-    "@nuxt/schema": "^3.15.3",
-    "@nuxt/test-utils": "^3.15.4",
-    "changelogen": "^0.5.7",
-    "eslint": "^9.19.0",
-    "nuxt": "^3.15.3",
-    "typescript": "^5.7.3",
-    "valibot": "1.0.0-beta.14",
-    "vitest": "^3.0.4",
-    "vue-tsc": "^2.2.0"
+    "@nuxt/devtools": "^2.6.5",
+    "@nuxt/eslint-config": "^1.9.0",
+    "@nuxt/module-builder": "^1.0.2",
+    "@nuxt/schema": "^4.2.0",
+    "@nuxt/test-utils": "^3.20.1",
+    "changelogen": "^0.6.2",
+    "eslint": "^9.38.0",
+    "nuxt": "^4.2.0",
+    "typescript": "^5.9.3",
+    "valibot": "^1.1.0",
+    "vitest": "^4.0.3",
+    "vue-tsc": "^3.1.2"
   },
   "resolutions": {
-    "nuxt-pglite": "workspace:*",
-    "rollup": "^4.24.0",
-    "typescript": "5.6.3",
-    "vite": "^6.0.7",
-    "vue-tsc": "2.1.6"
-  }
+    "nuxt-pglite": "workspace:*"
+  },
+  "packageManager": "pnpm@10.19.0"
 }
