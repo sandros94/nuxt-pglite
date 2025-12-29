@@ -55,9 +55,10 @@ export default defineNuxtModule<ModuleOptions>({
 
     nuxt.options.vite ||= {}
     nuxt.options.vite.optimizeDeps ||= {}
-    nuxt.options.vite.optimizeDeps.exclude?.push('@electric-sql/pglite', '@electric-sql/pglite-sync')
+    nuxt.options.vite.optimizeDeps.exclude ||= []
+    nuxt.options.vite.optimizeDeps.exclude.push('@electric-sql/pglite', '@electric-sql/pglite-sync')
     nuxt.options.vite.worker ||= {}
-    nuxt.options.vite.worker.format ||= 'es'
+    nuxt.options.vite.worker.format = 'es'
 
     // Transpile runtime
     const runtimeDir = resolve('./runtime')
