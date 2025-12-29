@@ -6,7 +6,7 @@ export default defineNuxtConfig({
   future: {
     compatibilityVersion: 4,
   },
-  compatibilityDate: '2024-08-29',
+  compatibilityDate: '2025-12-31',
 
   pglite: {
     client: {
@@ -20,7 +20,7 @@ export default defineNuxtConfig({
     server: {
       options: {
         // dataDir: 'memory://nuxt-pglite',
-        dataDir: './database/pglite',
+        dataDir: '.data/pglite',
       },
     },
   },

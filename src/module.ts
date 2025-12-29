@@ -1,3 +1,5 @@
+import { dirname } from 'node:path'
+import { mkdirSync } from 'node:fs'
 import {
   addPlugin,
   addImports,
@@ -76,7 +78,9 @@ export default defineNuxtModule<ModuleOptions>({
       && !serverConfig.dataDir?.startsWith('memory://')
       && !serverConfig.dataDir?.startsWith('file://')
     ) {
-      serverConfig.dataDir = resolve(nuxt.options.serverDir, serverConfig.dataDir)
+      serverConfig.dataDir = resolve(nuxt.options.rootDir, serverConfig.dataDir)
+      // Create the directory if it does not exist
+      mkdirSync(dirname(serverConfig.dataDir), { recursive: true })
     }
 
     if (options.client?.enabled !== false) {
