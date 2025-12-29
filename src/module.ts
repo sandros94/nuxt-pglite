@@ -16,7 +16,6 @@ import type {
   PGliteOptions,
   PGliteWorkerOptions,
 } from './runtime/types'
-import type { PGliteClientHooks } from './runtime/app/plugins/pglite.client'
 
 export type * from './runtime/types'
 
@@ -129,8 +128,4 @@ declare module '@nuxt/schema' {
   interface RuntimeConfig {
     pglite: Exclude<ModuleOptions['server'], undefined>['options']
   }
-}
-
-declare module '#app' {
-  interface RuntimeNuxtHooks extends PGliteClientHooks {}
 }

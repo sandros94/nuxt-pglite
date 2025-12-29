@@ -20,9 +20,9 @@ export async function usePGlite() {
     await nitroHooks.callHookParallel('pglite:config', options)
 
     pglite = await createDatabase(_pglite(options)).getInstance()
-  }
 
-  await nitroHooks.callHookParallel('pglite', pglite)
+    await nitroHooks.callHookParallel('pglite:init', pglite)
+  }
 
   return pglite
 }
@@ -37,7 +37,7 @@ export interface PGliteServerHooks {
   /**
    * Called after creating a PGlite instance
    */
-  'pglite': (pg: PGliteServerInstance) => void | Promise<void>
+  'pglite:init': (pg: PGliteServerInstance) => void | Promise<void>
 }
 
 declare module 'nitropack/types' {

@@ -3,7 +3,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     // options.username = useUserSession().user?.id
   })
 
-  nuxtApp.hooks.hookOnce('pglite', async (pg) => {
+  nuxtApp.hooks.hook('pglite:init', async (pg) => {
     await pg.query('CREATE EXTENSION IF NOT EXISTS vector;')
     console.log('pgvector is available?', (await pg.query<any>('SELECT * FROM pg_extension;')).rows.some(e => e.extname === 'vector'))
   })

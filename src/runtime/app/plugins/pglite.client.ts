@@ -34,7 +34,7 @@ export default defineNuxtPlugin({
       },
     })
 
-    await nuxtApp.hooks.callHookParallel('pglite', pglite)
+    await nuxtApp.hooks.callHookParallel('pglite:init', pglite)
 
     return {
       provide: {
@@ -54,7 +54,7 @@ export interface PGliteClientHooks {
   /**
    * Called after creating a PGlite instance
    */
-  'pglite': (pg: PGliteClientInstance) => void | Promise<void>
+  'pglite:init': (pg: PGliteClientInstance) => void | Promise<void>
 }
 
 declare module '#app' {
