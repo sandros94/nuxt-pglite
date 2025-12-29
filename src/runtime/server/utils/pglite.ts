@@ -18,7 +18,7 @@ export async function usePGlite() {
   if (!pglite || pglite.closed) {
     await nitroHooks.callHookParallel('pglite:config', options)
 
-    pglite = await createDatabase(_pglite(options)).getInstance() as PGlite<PGliteServerOptions<typeof options.extensions>>
+    pglite = await createDatabase(_pglite(options)).getInstance()
   }
 
   await nitroHooks.callHookParallel('pglite', pglite)
