@@ -29,12 +29,12 @@ export const pgliteHooks = createHooks<PGliteServerHooks>()
 export async function pgliteCreate<O extends PGliteOptions>(options?: O): Promise<PGlite<O>> {
   return await _PGlite.create(options)
 }
-export function pgliteWorkerCreate<O extends PGliteWorkerOptions>(options?: O): PGliteWorker<O> {
-  return new _PGliteWorker(
+export async function pgliteWorkerCreate<O extends PGliteWorkerOptions>(options?: O): Promise<PGliteWorker<O>> {
+  return await _PGliteWorker.create(
     new Worker(new URL('./app/worker/pglite.js?worker', import.meta.url), {
       name: 'pglite-worker',
       type: 'module',
     }),
     options,
-  ) as any
+  )
 }

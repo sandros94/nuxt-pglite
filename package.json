@@ -51,8 +51,8 @@
     "db:studio": "cd playground && drizzle-kit studio --config=./drizzle.config.ts"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.2.16",
-    "@electric-sql/pglite-sync": "^0.2.18",
+    "@electric-sql/pglite": "^0.3.14",
+    "@electric-sql/pglite-sync": "^0.4.0",
     "@nuxt/kit": "catalog:",
     "db0": "^0.3.4"
   },

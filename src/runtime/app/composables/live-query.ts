@@ -27,26 +27,26 @@ import type {
 
 type UnsubscribeFn = () => Promise<void>
 type QueryParams = unknown[] | undefined | null
-type QueryResult<T> =
-  | Omit<Results<T>, 'affectedRows'>
-  | { rows: undefined, fields: undefined, blob: undefined }
+type QueryResult<T>
+  = | Omit<Results<T>, 'affectedRows'>
+    | { rows: undefined, fields: undefined, blob: undefined }
 type LiveQueryResults<T> = ToRefs<DeepReadonly<QueryResult<T>>>
-type PGliteInstance<T extends Extensions> =
-  | PGliteWorker<PGliteWorkerOptions<T>>
-  | PGlite<PGliteOptions<T>>
+type PGliteInstance<T extends Extensions>
+  = | PGliteWorker<PGliteWorkerOptions<T>>
+    | PGlite<PGliteOptions<T>>
 
-async function useLiveQueryImpl<T = { [key: string]: unknown }>(
+function useLiveQueryImpl<T = { [key: string]: unknown }>(
   query: string | WatchSource<string>,
   params?: QueryParams | WatchSource<QueryParams> | WatchSource<unknown>[],
   key?: string | WatchSource<string>,
-): Promise<LiveQueryResults<T>> {
+): LiveQueryResults<T> {
   if (import.meta.server) throw createError({
     statusCode: 500,
     statusMessage: 'Client-side only',
     message: '[pglite] `useLiveQuery()` and `useLiveIncrementalQuery()` composables should only be called client-side',
   })
 
-  const db = await usePGlite() as PGliteInstance<{ live: typeof live }>
+  const db = usePGlite() as PGliteInstance<{ live: typeof live }>
 
   const liveUpdate = shallowReactive<
     | Omit<Results<T>, 'affectedRows'>
@@ -112,25 +112,25 @@ async function useLiveQueryImpl<T = { [key: string]: unknown }>(
   return toRefs(readonly(liveUpdate))
 }
 
-export async function useLiveQuery<T = { [key: string]: unknown }>(
+export function useLiveQuery<T = { [key: string]: unknown }>(
   query: string | WatchSource<string>,
   params?: QueryParams | WatchSource<QueryParams> | WatchSource<unknown>[],
-): Promise<LiveQueryResults<T>> {
+): LiveQueryResults<T> {
   return useLiveQueryImpl<T>(query, params)
 }
 
-useLiveQuery.sql = async function <T = { [key: string]: unknown }>(
+useLiveQuery.sql = function <T = { [key: string]: unknown }>(
   strings: TemplateStringsArray,
   ...values: any[]
-): Promise<LiveQueryResults<T>> {
+): LiveQueryResults<T> {
   const { query, params } = buildQuery(strings, ...values)
   return useLiveQueryImpl<T>(query, params)
 }
 
-export async function useLiveIncrementalQuery<T = { [key: string]: unknown }>(
+export function useLiveIncrementalQuery<T = { [key: string]: unknown }>(
   query: string | WatchSource<string>,
   params: QueryParams | WatchSource<QueryParams> | WatchSource<unknown>[],
   key: string | WatchSource<string>,
-): Promise<LiveQueryResults<T>> {
+): LiveQueryResults<T> {
   return useLiveQueryImpl<T>(query, params, key)
 }
