@@ -2,7 +2,8 @@ import { createDatabase } from 'db0'
 import _pglite from 'db0/connectors/pglite'
 
 import type { PGlite, PGliteOptions, PGliteServerOptions } from '#pglite-utils'
-import { useRuntimeConfig, useNitroApp } from '#imports'
+import { useNitroApp } from 'nitropack/runtime'
+import { useRuntimeConfig } from '#imports'
 
 // @ts-ignore Nitro virtual fs
 import { extensions } from '#pglite/server-extensions.js'
