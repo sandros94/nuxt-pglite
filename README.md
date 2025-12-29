@@ -19,7 +19,7 @@ A Nuxt module aimed to simplify the use of [PGlite](https://pglite.dev).
 ## Features
 
 <!-- Highlight some of the features your module provide here -->
-- ⚡️&nbsp;Server-side `usePGlite`, running in your Node or Bun server.
+- ⚡️&nbsp;Server-side `usePGlite`, running in your Node, Bun or Deno servers.
 - 🧑‍💻&nbsp;Client-side `usePGlite`, running inside Web Workers.
 - 🪢&nbsp;Client-side `useLiveQuery` and `useLiveIncrementalQuery` to subscribe to live changes.
 
@@ -35,7 +35,7 @@ That's it! You can now use Nuxt PGlite in your Nuxt app ✨
 
 ### Storage
 
-You can configure where to store data in your `nuxt.config.ts`. Server-side storage accepts relative baths:
+You can configure where to store data in your `nuxt.config.ts`. Server-side storage accepts relative baths based on `rootDir` (`~~`):
 
 ```ts
 export default defineNuxtConfig({
@@ -49,7 +49,7 @@ export default defineNuxtConfig({
     },
     server: {
       options: {
-        dataDir: './database/pglite', // will use `~~/server/database/pglite`
+        dataDir: '.data/pglite', // will use `~~/.data/pglite`
       },
     },
   },
@@ -75,9 +75,6 @@ export default defineNuxtConfig({
 ```
 
 For a full list of available extensions please refer to [the official docs](https://pglite.dev/extensions). If a new extension is missing feel free to open up a new PR by adding it to [this file](/src/templates.ts#L62-L87). I do plan to support only official and contrib extensions.
-
-> [!WARNING]  
-> Auto configuration for server-side extensions will be supported once Nuxt `v3.15` gets released. See below how to use hooks to add extensions server-side.
 
 ## Live Queries
 
@@ -114,7 +111,7 @@ const items = useLiveQuery.sql`
 </script>
 ```
 
-Live queries are currently a port of the upstream implementation, you can read more [here](https://pglite.dev/docs/framework-hooks/vue#uselivequery).
+Live queries are currently a custom fork of the upstream implementation, which you can read more [here](https://pglite.dev/docs/framework-hooks/vue#uselivequery).
 
 ## Hooks
 
@@ -158,11 +155,12 @@ export default defineNitroPlugin((nitro) => {
     }
   })
 
-  nitro.hooks.hookOnce('pglite', async (pg) => {
+  nitro.hooks.hook('pglite:init', async (pg) => {
     await pg.query('CREATE EXTENSION IF NOT EXISTS vector;')
   })
 })
 
+// Improve typing for server-side extensions
 declare module '#pglite-utils' {
   interface PGliteServerExtensions {
     vector: typeof vector
@@ -172,14 +170,14 @@ declare module '#pglite-utils' {
 ```
 
 > [!WARNING]  
-> Until Nuxt `v3.15` gets released this is the only way to add extensions server-side.
+> This is currently the only way to type server-side extensions.
 
 ### Hooking Notes
 
 A few things to consider are that:
 - we rely on `nuxtApp` hooks for client-side, while `nitroApp` for server-side, hooks available are:
   - `pglite:config`: provides access to `PGliteOptions` before initializing a new PGlite instance.
-  - `pglite`: called on every PGlite execution.
+  - `pglite:init`: provides access to the initialized PGlite instance.
 - To improve types when manually adding extensions we use `PGliteClientExtensions` and `PGliteServerExtensions` for client and server respectively.
 
 ## ORM support
@@ -194,7 +192,8 @@ import { drizzle } from 'drizzle-orm/pglite'
 import * as schema from '../my-path-to/schema'
 
 export function useDB() {
-  return drizzle(usePGlite(), { schema })
+  const pg = await usePGlite()
+  return drizzle(pg, { schema })
 }
 ```
 
