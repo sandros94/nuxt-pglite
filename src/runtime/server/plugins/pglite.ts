@@ -1,6 +1,7 @@
 import { consola } from 'consola'
 
-import { defineNitroPlugin, usePGlite } from '#imports'
+import { defineNitroPlugin } from 'nitropack/runtime'
+import { usePGlite } from '../utils/pglite'
 
 export default defineNitroPlugin((nitro) => {
   nitro.hooks.hookOnce('close', async () => {
