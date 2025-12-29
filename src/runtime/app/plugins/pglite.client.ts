@@ -1,4 +1,3 @@
-import type { HookResult } from '@nuxt/schema'
 import type { Extension } from '@electric-sql/pglite'
 import { defineNuxtPlugin, useRuntimeConfig } from '#imports'
 import type { PGliteClientOptions, PGliteWorker, PGliteWorkerOptions } from '#pglite-utils'
@@ -50,11 +49,11 @@ export interface PGliteClientHooks {
   /**
    * Called before creating a PGlite instance
    */
-  'pglite:config': (options: PGliteWorkerOptions<typeof extensions>) => void
+  'pglite:config': (options: PGliteWorkerOptions<typeof extensions>) => void | Promise<void>
   /**
    * Called after creating a PGlite instance
    */
-  'pglite': (pg: PGliteInstance) => HookResult
+  'pglite': (pg: PGliteInstance) => void | Promise<void>
 }
 
 declare module '#app' {
