@@ -182,11 +182,11 @@ A few things to consider are that:
 
 ## ORM support
 
-Any ORM that accept a PGlite instance should be supported both server and client side.
+Any ORM that accept a PGlite or PGliteWorker instances should be supported both server and client side.
 
 ### Drizzle
 
-Drizzle integration is as simple as:
+Drizzle integration for server-side is as simple as:
 ```ts
 import { drizzle } from 'drizzle-orm/pglite'
 import * as schema from '../my-path-to/schema'
