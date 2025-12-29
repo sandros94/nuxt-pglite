@@ -21,36 +21,44 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/types.d.ts",
-      "import": "./dist/module.mjs",
-      "require": "./dist/module.cjs"
+      "types": "./dist/module.d.mts",
+      "import": "./dist/module.mjs"
     }
   },
-  "main": "./dist/module.cjs",
-  "types": "./dist/types.d.ts",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/module.d.mts"
+      ]
+    }
+  },
+  "main": "./dist/module.mjs",
   "files": [
     "dist"
   ],
   "scripts": {
-    "prepack": "nuxt-module-build build",
-    "dev": "nuxi dev playground",
-    "dev:build": "nuxi build playground",
-    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground",
-    "release": "nr lint && nr test:run && nr prepack && changelogen --release --push --publish",
+    "build": "nuxt-module-build build",
+    "prepack": "pnpm build",
+    "dev": "nuxt dev playground",
+    "dev:build": "nuxt build playground",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground && nuxt prepare docs",
+    "docs": "nuxt dev docs",
+    "docs:build": "nuxt build docs",
+    "docs:preview": "nuxt preview",
+    "release": "pnpm lint && pnpm test && pnpm prepack && changelogen --release --push --publish",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "vitest",
-    "test:run": "vitest run",
+    "test": "pnpm lint && pnpm test:types && vitest run",
     "test:watch": "vitest watch",
-    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit",
+    "test:types": "vue-tsc --noEmit && nuxt typecheck playground && nuxt typecheck docs",
     "db:push": "cd playground && drizzle-kit push --config=./drizzle.config.ts",
     "db:generate": "cd playground && drizzle-kit generate --config=./drizzle.config.ts",
     "db:migrate": "cd playground && drizzle-kit migrate --config=./drizzle.config.ts",
     "db:studio": "cd playground && drizzle-kit studio --config=./drizzle.config.ts"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.2.16",
-    "@electric-sql/pglite-sync": "^0.2.18",
+    "@electric-sql/pglite": "^0.3.14",
+    "@electric-sql/pglite-sync": "^0.4.0",
     "@nuxt/kit": "catalog:",
     "db0": "^0.3.4"
   },
@@ -60,6 +68,7 @@
     "@nuxt/module-builder": "^1.0.2",
     "@nuxt/schema": "catalog:",
     "@nuxt/test-utils": "^3.21.0",
+    "@types/node": "^22.16.0",
     "changelogen": "^0.6.2",
     "eslint": "^9.39.1",
     "nuxt": "catalog:",

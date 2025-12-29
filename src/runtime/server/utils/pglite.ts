@@ -1,26 +1,44 @@
+import { createDatabase } from 'db0'
+import _pglite from 'db0/connectors/pglite'
+
 import type { PGlite, PGliteOptions, PGliteServerOptions } from '#pglite-utils'
-import { pgliteHooks, pgliteCreate } from '#pglite-utils'
-import { useRuntimeConfig } from '#imports'
+import { useRuntimeConfig, useNitroApp } from '#imports'
 
 // @ts-ignore Nitro virtual fs
 import { extensions } from '#pglite/server-extensions.js'
 
 let pglite: PGlite<PGliteServerOptions> | undefined
-export function usePGlite() {
-  const options: PGliteOptions<typeof extensions> = {
+export async function usePGlite() {
+  const nitroHooks = useNitroApp().hooks
+  const options: PGliteServerOptions = {
     ...useRuntimeConfig().pglite,
     extensions,
   }
 
   if (!pglite || pglite.closed) {
-    const results = pgliteHooks.callHookWith(hooks => hooks.map(hook => hook(options)), 'pglite:config', options)
-    if (import.meta.dev && results && results.some(i => i && 'then' in i)) {
-      console.error('[pglite] Error in `pglite:config` hook. Callback must be synchronous.')
-    }
+    await nitroHooks.callHookParallel('pglite:config', options)
 
-    pglite = pgliteCreate<PGliteServerOptions>(options)
+    pglite = await createDatabase(_pglite(options)).getInstance()
+
+    await nitroHooks.callHookParallel('pglite:init', pglite)
   }
 
-  pgliteHooks.callHook('pglite', pglite)
   return pglite
+}
+
+export type PGliteServerInstance = PGlite<PGliteServerOptions>
+
+export interface PGliteServerHooks {
+  /**
+   * Called before creating a PGlite instance
+   */
+  'pglite:config': (options: PGliteOptions) => void | Promise<void>
+  /**
+   * Called after creating a PGlite instance
+   */
+  'pglite:init': (pg: PGliteServerInstance) => void | Promise<void>
+}
+
+declare module 'nitropack/types' {
+  interface NitroRuntimeHooks extends PGliteServerHooks {}
 }

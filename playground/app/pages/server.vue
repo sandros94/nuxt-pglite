@@ -8,10 +8,10 @@
       </li>
     </ul>
     <div style="display: inline-flex; gap: .5rem;">
-      <button @click="reset(); query()">
+      <button @click.prevent="reset(); query()">
         Reset DB
       </button>
-      <button @click="insert(); query()">
+      <button @click.prevent="insert(); query()">
         Insert
       </button>
     </div>
@@ -25,13 +25,16 @@
 </template>
 
 <script setup lang="ts">
-const { execute: reset } = await useFetch('/api/reset', {
-  method: 'POST',
-  immediate: false,
-})
 const { data, refresh: query } = await useFetch('/api/read')
-const { execute: insert } = await useFetch('/api/insert', {
-  method: 'POST',
-  immediate: false,
-})
+
+async function reset() {
+  await $fetch('/api/reset', {
+    method: 'POST',
+  })
+}
+async function insert() {
+  await $fetch('/api/insert', {
+    method: 'POST',
+  })
+}
 </script>

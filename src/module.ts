@@ -1,6 +1,8 @@
+import { dirname } from 'node:path'
+import { mkdirSync } from 'node:fs'
 import {
-  addImports,
   addPlugin,
+  addImports,
   addServerImports,
   addServerPlugin,
   createResolver,
@@ -35,6 +37,9 @@ export default defineNuxtModule<ModuleOptions>({
   meta: {
     name: 'nuxt-pglite',
     configKey: 'pglite',
+    compatibility: {
+      nuxt: '>=3.15.0 >=4.0.0',
+    },
   },
   defaults: {
     client: {
@@ -75,13 +80,15 @@ export default defineNuxtModule<ModuleOptions>({
       && !serverConfig.dataDir?.startsWith('memory://')
       && !serverConfig.dataDir?.startsWith('file://')
     ) {
-      serverConfig.dataDir = resolve(nuxt.options.serverDir, serverConfig.dataDir)
+      serverConfig.dataDir = resolve(nuxt.options.rootDir, serverConfig.dataDir)
+      // Create the directory if it does not exist
+      mkdirSync(dirname(serverConfig.dataDir), { recursive: true })
     }
 
     if (options.client?.enabled !== false) {
       addPlugin({
         mode: 'client',
-        src: resolve(runtimeDir, 'app', 'plugins', 'pglite'),
+        src: resolve(runtimeDir, 'app', 'plugins', 'pglite.client'),
       })
       addImports([
         {
@@ -116,3 +123,12 @@ export default defineNuxtModule<ModuleOptions>({
     addTemplates(options)
   },
 })
+
+declare module '@nuxt/schema' {
+  interface PublicRuntimeConfig {
+    pglite: Exclude<ModuleOptions['client'], undefined>['options']
+  }
+  interface RuntimeConfig {
+    pglite: Exclude<ModuleOptions['server'], undefined>['options']
+  }
+}

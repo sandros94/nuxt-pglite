@@ -1,11 +1,9 @@
-import type { PGliteInstance } from '#pglite/app/plugins/pglite'
-
 import {
   createError,
   useNuxtApp,
 } from '#imports'
 
-export function usePGlite(): PGliteInstance {
+export function usePGlite() {
   if (import.meta.server) throw createError({
     statusCode: 500,
     statusMessage: 'Client-side only',

@@ -14,6 +14,7 @@ import {
   ref,
   isRef,
   unref,
+  createError,
   usePGlite,
 } from '#imports'
 import type {
@@ -26,19 +27,25 @@ import type {
 
 type UnsubscribeFn = () => Promise<void>
 type QueryParams = unknown[] | undefined | null
-type QueryResult<T> =
-  | Omit<Results<T>, 'affectedRows'>
-  | { rows: undefined, fields: undefined, blob: undefined }
+type QueryResult<T>
+  = | Omit<Results<T>, 'affectedRows'>
+    | { rows: undefined, fields: undefined, blob: undefined }
 type LiveQueryResults<T> = ToRefs<DeepReadonly<QueryResult<T>>>
-type PGliteInstance<T extends Extensions> =
-  | PGliteWorker<PGliteWorkerOptions<T>>
-  | PGlite<PGliteOptions<T>>
+type PGliteInstance<T extends Extensions>
+  = | PGliteWorker<PGliteWorkerOptions<T>>
+    | PGlite<PGliteOptions<T>>
 
 function useLiveQueryImpl<T = { [key: string]: unknown }>(
   query: string | WatchSource<string>,
   params?: QueryParams | WatchSource<QueryParams> | WatchSource<unknown>[],
   key?: string | WatchSource<string>,
 ): LiveQueryResults<T> {
+  if (import.meta.server) throw createError({
+    statusCode: 500,
+    statusMessage: 'Client-side only',
+    message: '[pglite] `useLiveQuery()` and `useLiveIncrementalQuery()` composables should only be called client-side',
+  })
+
   const db = usePGlite() as PGliteInstance<{ live: typeof live }>
 
   const liveUpdate = shallowReactive<
@@ -100,7 +107,7 @@ function useLiveQueryImpl<T = { [key: string]: unknown }>(
     { immediate: true },
   )
 
-  onScopeDispose(() => unsubscribeRef.value?.())
+  onScopeDispose(() => unsubscribeRef.value?.(), true)
 
   return toRefs(readonly(liveUpdate))
 }
