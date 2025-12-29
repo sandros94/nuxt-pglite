@@ -6,12 +6,6 @@ settings:
 
 catalogs:
   default:
-    '@nuxt/kit':
-      specifier: ^4.2.2
-      version: 4.2.2
-    '@nuxt/schema':
-      specifier: ^4.2.2
-      version: 4.2.2
     nuxt:
       specifier: ^4.2.2
       version: 4.2.2
@@ -35,8 +29,11 @@ importers:
         specifier: ^0.4.0
         version: 0.4.0(@electric-sql/pglite@0.3.14)
       '@nuxt/kit':
-        specifier: 'catalog:'
+        specifier: ^4.2.2
         version: 4.2.2(magicast@0.5.1)
+      '@nuxt/schema':
+        specifier: ^4.2.2
+        version: 4.2.2
       db0:
         specifier: ^0.3.4
         version: 0.3.4(@electric-sql/pglite@0.3.14)(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.14))
@@ -50,9 +47,6 @@ importers:
       '@nuxt/module-builder':
         specifier: ^1.0.2
         version: 1.0.2(@nuxt/cli@3.31.2(cac@6.7.14)(magicast@0.5.1))(@vue/compiler-core@3.5.25)(esbuild@0.27.1)(typescript@5.9.3)(vue-tsc@3.1.8(typescript@5.9.3))(vue@3.5.25(typescript@5.9.3))
-      '@nuxt/schema':
-        specifier: 'catalog:'
-        version: 4.2.2
       '@nuxt/test-utils':
         specifier: ^3.21.0
         version: 3.21.0(magicast@0.5.1)(typescript@5.9.3)(vitest@4.0.15(@types/node@22.19.3)(jiti@2.6.1)(terser@5.44.1)(yaml@2.8.2))

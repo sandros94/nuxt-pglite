@@ -4,8 +4,6 @@ packages:
   - playground
 
 catalog:
-  '@nuxt/kit': ^4.2.2
-  '@nuxt/schema': ^4.2.2
   nuxt: ^4.2.2
 
 ignoredBuiltDependencies:
