@@ -5,6 +5,7 @@ import { pgliteWorkerCreate } from '#pglite-utils'
 import { extensions } from '#build/pglite/extensions'
 
 export default defineNuxtPlugin({
+  name: 'nuxt-pglite',
   parallel: true,
   enforce: 'post',
   env: {
