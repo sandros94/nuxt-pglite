@@ -21,6 +21,7 @@ export async function usePGlite() {
     pglite = await createDatabase(_pglite(options)).getInstance() as PGlite<PGliteServerOptions<typeof options.extensions>>
   }
 
-  pgliteHooks.callHookParallel('pglite', pglite)
+  await pgliteHooks.callHookParallel('pglite', pglite)
+
   return pglite
 }
