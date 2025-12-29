@@ -1,6 +1,19 @@
 # Changelog
 
 
+## v0.3.2
+
+[compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.3.1...v0.3.2)
+
+### 🏡 Chore
+
+- Update repo link ([61b309b](https://github.com/sandros94/nuxt-pglite/commit/61b309b))
+- Move `@nuxt/schema` to dep ([77ad5ca](https://github.com/sandros94/nuxt-pglite/commit/77ad5ca))
+
+### ❤️ Contributors
+
+- Sandro Circi ([@sandros94](https://github.com/sandros94))
+
 ## v0.3.1
 
 [compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.3.0...v0.3.1)
