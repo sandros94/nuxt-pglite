@@ -12,14 +12,14 @@ export interface PGliteServerExtensions extends Extensions {
 }
 
 export interface PGliteClientOptions<
-  E = any,
+  E = {},
 > extends PGliteWorkerOptions {
   extensions?: E extends Extensions
     ? E & PGliteClientExtensions
     : PGliteClientExtensions
 }
 export interface PGliteServerOptions<
-  E = any,
+  E = {},
 > extends PGliteOptions {
   extensions?: E extends Extensions
     ? E & PGliteClientExtensions
