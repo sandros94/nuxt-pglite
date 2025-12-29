@@ -8,11 +8,11 @@
     "generate": "nuxi generate"
   },
   "dependencies": {
-    "drizzle-orm": "^0.44.7",
+    "drizzle-orm": "^0.45.1",
     "nuxt-pglite": "latest",
-    "nuxt": "^4.2.0"
+    "nuxt": "catalog:"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.31.5"
+    "drizzle-kit": "^0.31.8"
   }
 }
