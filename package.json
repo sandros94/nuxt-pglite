@@ -9,6 +9,17 @@
     "name": "Sandro Circi",
     "email": "sandro.circi@digitoolmedia.com"
   },
+  "keywords": [
+    "database",
+    "electric-sql",
+    "nuxt",
+    "nuxt-module",
+    "nuxt-pglite",
+    "pglite",
+    "postgresql",
+    "typescript",
+    "wasm"
+  ],
   "engines": {
     "node": "22"
   },
