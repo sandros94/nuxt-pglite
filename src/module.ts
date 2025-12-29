@@ -37,6 +37,9 @@ export default defineNuxtModule<ModuleOptions>({
   meta: {
     name: 'nuxt-pglite',
     configKey: 'pglite',
+    compatibility: {
+      nuxt: '>=3.15.0 >=4.0.0',
+    },
   },
   defaults: {
     client: {
