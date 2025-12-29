@@ -1,6 +1,46 @@
 # Changelog
 
 
+## v0.3.0
+
+[compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.2.9...v0.3.0)
+
+### 🩹 Fixes
+
+- Use ddServerTemplate from @nuxt/kit fixes #4 ([#4](https://github.com/sandros94/nuxt-pglite/issues/4))
+- Types ([d5ae7af](https://github.com/sandros94/nuxt-pglite/commit/d5ae7af))
+- Server extensions ([8a6b92a](https://github.com/sandros94/nuxt-pglite/commit/8a6b92a))
+
+### 💅 Refactors
+
+- ⚠️  PGlite `0.3`, Nuxt 4, db0, async init, hooks and types ([#8](https://github.com/sandros94/nuxt-pglite/pull/8))
+
+### 📖 Documentation
+
+- Clarify ORM use ([91e2a76](https://github.com/sandros94/nuxt-pglite/commit/91e2a76))
+
+### 🏡 Chore
+
+- Update all deps ([004c10f](https://github.com/sandros94/nuxt-pglite/commit/004c10f))
+- Update deps ([2c5b3f6](https://github.com/sandros94/nuxt-pglite/commit/2c5b3f6))
+- Update deps ([c0d2bc0](https://github.com/sandros94/nuxt-pglite/commit/c0d2bc0))
+- Update deps ([0c2e022](https://github.com/sandros94/nuxt-pglite/commit/0c2e022))
+- Update pnpm and ignore build scripts ([f66218b](https://github.com/sandros94/nuxt-pglite/commit/f66218b))
+- Fix typechecking ([fd1fbdb](https://github.com/sandros94/nuxt-pglite/commit/fd1fbdb))
+
+### ✅ Tests
+
+- Install valibot ([3004f78](https://github.com/sandros94/nuxt-pglite/commit/3004f78))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️  PGlite `0.3`, Nuxt 4, db0, async init, hooks and types ([#8](https://github.com/sandros94/nuxt-pglite/pull/8))
+
+### ❤️ Contributors
+
+- Sandro Circi ([@sandros94](https://github.com/sandros94))
+- Sandros94 ([@sandros94](https://github.com/sandros94))
+
 ## v0.2.9
 
 [compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.2.8...v0.2.9)
