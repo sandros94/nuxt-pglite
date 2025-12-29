@@ -1,9 +1,14 @@
 packages:
-  - "./"
-  - "docs"
-  - "playground"
+  - ./
+  - docs
+  - playground
 
 catalog:
+  '@nuxt/kit': ^4.2.2
+  '@nuxt/schema': ^4.2.2
   nuxt: ^4.2.2
-  "@nuxt/kit": ^4.2.2
-  "@nuxt/schema": ^4.2.2
+
+ignoredBuiltDependencies:
+  - '@parcel/watcher'
+  - esbuild
+  - unrs-resolver
