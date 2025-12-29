@@ -22,6 +22,6 @@ export interface PGliteServerOptions<
   E = {},
 > extends PGliteOptions {
   extensions?: E extends Extensions
-    ? E & PGliteClientExtensions
-    : PGliteClientExtensions
+    ? E & PGliteServerExtensions
+    : PGliteServerExtensions
 }
