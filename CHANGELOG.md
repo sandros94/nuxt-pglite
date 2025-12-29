@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v0.3.1
+
+[compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.3.0...v0.3.1)
+
+### 🏡 Chore
+
+- Add keywords ([f34425f](https://github.com/sandros94/nuxt-pglite/commit/f34425f))
+
+### 🤖 CI
+
+- Fix dev:prepare ([b5aa6b6](https://github.com/sandros94/nuxt-pglite/commit/b5aa6b6))
+
+### ❤️ Contributors
+
+- Sandro Circi ([@sandros94](https://github.com/sandros94))
+
 ## v0.3.0
 
 [compare changes](https://github.com/sandros94/nuxt-pglite/compare/v0.2.9...v0.3.0)
