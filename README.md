@@ -148,10 +148,8 @@ In the following example we are creating a `/server/plugins/extend-pglite.ts` pl
 import { vector } from '@electric-sql/pglite/vector'
 import { electricSync } from '@electric-sql/pglite-sync'
 
-import { pgliteHooks } from '#pglite-utils'
-
-export default defineNitroPlugin(() => {
-  pgliteHooks.hook('pglite:config', (options) => {
+export default defineNitroPlugin((nitro) => {
+  nitro.hooks.hook('pglite:config', (options) => {
     options.extensions = {
       vector,
       electric: electricSync({
@@ -160,7 +158,7 @@ export default defineNitroPlugin(() => {
     }
   })
 
-  pgliteHooks.hookOnce('pglite', async (pg) => {
+  nitro.hooks.hookOnce('pglite', async (pg) => {
     await pg.query('CREATE EXTENSION IF NOT EXISTS vector;')
   })
 })
@@ -179,7 +177,7 @@ declare module '#pglite-utils' {
 ### Hooking Notes
 
 A few things to consider are that:
-- we rely on `nuxtApp` hooks for client-side, while `pgliteHooks` imported from `#pglite-utils` for server-side, hooks available are:
+- we rely on `nuxtApp` hooks for client-side, while `nitroApp` for server-side, hooks available are:
   - `pglite:config`: provides access to `PGliteOptions` before initializing a new PGlite instance.
   - `pglite`: called on every PGlite execution.
 - To improve types when manually adding extensions we use `PGliteClientExtensions` and `PGliteServerExtensions` for client and server respectively.
