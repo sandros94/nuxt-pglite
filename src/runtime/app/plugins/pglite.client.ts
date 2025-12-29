@@ -28,7 +28,6 @@ export default defineNuxtPlugin({
 
     const pglite = await pgliteWorkerCreate<PGliteClientOptions<typeof options.extensions>>({
       ...options,
-      fs: undefined,
       extensions: {
         ...(live?.setup !== undefined ? { live } : {}),
         ...(electric?.setup !== undefined ? { electric } : {}),

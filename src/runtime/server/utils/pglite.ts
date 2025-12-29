@@ -12,7 +12,6 @@ export async function usePGlite() {
   const nitroHooks = useNitroApp().hooks
   const options: PGliteServerOptions = {
     ...useRuntimeConfig().pglite,
-    fs: undefined,
     extensions,
   }
 
