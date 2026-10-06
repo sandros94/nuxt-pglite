@@ -1,12 +1,8 @@
 export default defineNuxtConfig({
-  modules: ['../src/module'],
-  imports: { autoImport: true },
-
+  compatibilityDate: 'latest',
   devtools: { enabled: true },
-  future: {
-    compatibilityVersion: 4,
-  },
-  compatibilityDate: '2025-12-31',
+
+  modules: ['nuxt-pglite'],
 
   pglite: {
     client: {
@@ -22,6 +18,12 @@ export default defineNuxtConfig({
         // dataDir: 'memory://nuxt-pglite',
         dataDir: '.data/pglite',
       },
+    },
+  },
+
+  $test: {
+    nitro: {
+      preset: 'node-server',
     },
   },
 })

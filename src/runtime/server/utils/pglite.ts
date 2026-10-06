@@ -3,7 +3,7 @@ import _pglite from 'db0/connectors/pglite'
 
 import type { PGlite, PGliteOptions, PGliteServerOptions } from '#pglite-utils'
 import { useNitroApp } from 'nitropack/runtime'
-import { useRuntimeConfig } from '#imports'
+import { useRuntimeConfig } from 'nuxt/server'
 
 // @ts-ignore Nitro virtual fs
 import { extensions } from '#pglite/server-extensions.js'

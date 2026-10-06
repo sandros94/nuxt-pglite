@@ -1,5 +1,9 @@
 {
-  "private": true,
   "name": "basic",
-  "type": "module"
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "nuxt": "catalog:",
+    "vue": "catalog:"
+  }
 }

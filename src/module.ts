@@ -4,41 +4,27 @@ import {
   addPlugin,
   addImports,
   addServerImports,
-  addServerPlugin,
+  addNitroPlugin,
   createResolver,
   defineNuxtModule,
+  useLogger,
 } from '@nuxt/kit'
-import { defu } from 'defu'
+import type { NuxtModule } from '@nuxt/schema'
+import { default as defu } from 'defu'
 
 import { addTemplates } from './templates'
-import type {
-  ExtensionName,
-  PGliteOptions,
-  PGliteWorkerOptions,
-} from './runtime/types'
+import type { ModuleOptions } from './types'
 
-export type * from './runtime/types'
+export type * from './types'
 
-export interface ModuleOptions {
-  client?: {
-    enabled?: boolean
-    extensions?: ExtensionName[]
-    liveQuery?: boolean
-    options?: Omit<PGliteWorkerOptions, 'extensions' | 'fs'>
-  }
-  server?: {
-    enabled?: boolean
-    extensions?: ExtensionName[]
-    options?: Omit<PGliteOptions, 'extensions' | 'fs'>
-  }
-}
-
-export default defineNuxtModule<ModuleOptions>({
+// Annotated explicitly: without a bare `@nuxt/schema` reference in the type
+// graph the emitted declaration cannot name `NuxtModule` portably (TS2883).
+const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
   meta: {
     name: 'nuxt-pglite',
     configKey: 'pglite',
     compatibility: {
-      nuxt: '>=3.15.0 >=4.0.0',
+      nuxt: '>=4.6.0',
     },
   },
   defaults: {
@@ -51,7 +37,8 @@ export default defineNuxtModule<ModuleOptions>({
     },
   },
   setup(options, nuxt) {
-    const { resolve } = createResolver(import.meta.url)
+    const resolver = createResolver(import.meta.url)
+    const logger = useLogger('nuxt-pglite')
 
     nuxt.options.vite ||= {}
     nuxt.options.vite.optimizeDeps ||= {}
@@ -61,40 +48,41 @@ export default defineNuxtModule<ModuleOptions>({
     nuxt.options.vite.worker.format = 'es'
 
     // Transpile runtime
-    const runtimeDir = resolve('./runtime')
+    const runtimeDir = resolver.resolve('./runtime')
     nuxt.options.build.transpile.push(runtimeDir)
-    nuxt.options.alias['#pglite'] = resolve(runtimeDir)
-    nuxt.options.alias['#pglite-utils'] = resolve(runtimeDir, 'utils')
+    nuxt.options.alias['#pglite'] = resolver.resolve(runtimeDir)
+    nuxt.options.alias['#pglite-utils'] = resolver.resolve(runtimeDir, 'utils')
 
     nuxt.options.runtimeConfig.public.pglite = defu(
       nuxt.options.runtimeConfig.public.pglite,
       options.client?.options,
     )
-    const serverConfig = nuxt.options.runtimeConfig.pglite = defu(
+    const serverConfig = (nuxt.options.runtimeConfig.pglite = defu(
       nuxt.options.runtimeConfig.pglite,
       options.server?.options,
-    )
+    ))
 
     // Use relative path for server directory
     if (
-      serverConfig.dataDir
-      && !serverConfig.dataDir?.startsWith('memory://')
-      && !serverConfig.dataDir?.startsWith('file://')
+      serverConfig.dataDir &&
+      !serverConfig.dataDir?.startsWith('memory://') &&
+      !serverConfig.dataDir?.startsWith('file://')
     ) {
-      serverConfig.dataDir = resolve(nuxt.options.rootDir, serverConfig.dataDir)
+      serverConfig.dataDir = resolver.resolve(nuxt.options.rootDir, serverConfig.dataDir)
       // Create the directory if it does not exist
       mkdirSync(dirname(serverConfig.dataDir), { recursive: true })
+      logger.debug(`server data directory resolved to "${serverConfig.dataDir}"`)
     }
 
     if (options.client?.enabled !== false) {
       addPlugin({
         mode: 'client',
-        src: resolve(runtimeDir, 'app', 'plugins', 'pglite.client'),
+        src: resolver.resolve(runtimeDir, 'app', 'plugins', 'pglite.client'),
       })
       addImports([
         {
           name: 'usePGlite',
-          from: resolve(runtimeDir, 'app', 'composables', 'pglite'),
+          from: resolver.resolve(runtimeDir, 'app', 'composables', 'pglite'),
         },
       ])
 
@@ -102,11 +90,11 @@ export default defineNuxtModule<ModuleOptions>({
         addImports([
           {
             name: 'useLiveQuery',
-            from: resolve(runtimeDir, 'app', 'composables', 'live-query'),
+            from: resolver.resolve(runtimeDir, 'app', 'composables', 'live-query'),
           },
           {
             name: 'useLiveIncrementalQuery',
-            from: resolve(runtimeDir, 'app', 'composables', 'live-query'),
+            from: resolver.resolve(runtimeDir, 'app', 'composables', 'live-query'),
           },
         ])
       }
@@ -115,21 +103,14 @@ export default defineNuxtModule<ModuleOptions>({
       addServerImports([
         {
           name: 'usePGlite',
-          from: resolve(runtimeDir, 'server', 'utils', 'pglite'),
+          from: resolver.resolve(runtimeDir, 'server', 'utils', 'pglite'),
         },
       ])
-      addServerPlugin(resolve(runtimeDir, 'server', 'plugins', 'pglite'))
+      addNitroPlugin(resolver.resolve(runtimeDir, 'server', 'plugins', 'pglite'))
     }
 
     addTemplates(options)
   },
 })
 
-declare module '@nuxt/schema' {
-  interface PublicRuntimeConfig {
-    pglite: Exclude<ModuleOptions['client'], undefined>['options']
-  }
-  interface RuntimeConfig {
-    pglite: Exclude<ModuleOptions['server'], undefined>['options']
-  }
-}
+export default module

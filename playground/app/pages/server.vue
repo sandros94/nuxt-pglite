@@ -2,25 +2,31 @@
   <div>
     <ul>
       <li>
-        <NuxtLink to="/">
-          Home
-        </NuxtLink>
+        <NuxtLink to="/"> Home </NuxtLink>
       </li>
     </ul>
-    <div style="display: inline-flex; gap: .5rem;">
-      <button @click.prevent="reset(); query()">
+    <div style="display: inline-flex; gap: 0.5rem">
+      <button
+        @click.prevent="
+          reset()
+          query()
+        "
+      >
         Reset DB
       </button>
-      <button @click.prevent="insert(); query()">
+      <button
+        @click.prevent="
+          insert()
+          query()
+        "
+      >
         Insert
       </button>
     </div>
     <pre v-if="data">
       {{ data }}
     </pre>
-    <p v-else>
-      Loading...
-    </p>
+    <p v-else>Loading...</p>
   </div>
 </template>
 

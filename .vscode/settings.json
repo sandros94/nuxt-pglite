@@ -1,17 +1,28 @@
 {
-  // Enable ESLint
-  "eslint.enable": true,
+  // Use workspace version of TypeScript
+  // "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  // "js/ts.tsdk.path": "node_modules/typescript/lib",
 
-  // Enable ESlint flat config support
-  "eslint.useFlatConfig": true,
-
-  // Disable the default formatter, use eslint instead
+  // OXC
   "prettier.enable": false,
-  "editor.formatOnSave": false,
-
-  // Auto fix
+  "oxc.enable": true,
+  "editor.defaultFormatter": "oxc.oxc-vscode",
+  "editor.formatOnSave": true,
+  "editor.formatOnSaveMode": "file",
   "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": "explicit",
+    "source.fixAll.oxc": "explicit",
     "source.organizeImports": "never"
   },
+
+  // JSON Schema
+  "json.schemaDownload.trustedDomains": {
+    "https://schemastore.azurewebsites.net/": true,
+    "https://raw.githubusercontent.com/microsoft/vscode/": true,
+    "https://raw.githubusercontent.com/devcontainers/spec/": true,
+    "https://www.schemastore.org/": true,
+    "https://json.schemastore.org/": true,
+    "https://json-schema.org/": true,
+    "https://developer.microsoft.com/json-schemas/": true,
+    "https://docs.renovatebot.com/": true
+  }
 }

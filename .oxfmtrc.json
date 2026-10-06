@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+
+  "tabWidth": 2,
+  "singleQuote": true,
+  "quoteProps": "consistent",
+  "semi": false,
+  "trailingComma": "all",
+  "proseWrap": "never",
+
+  "ignorePatterns": [
+    "**/CHANGELOG.md",
+    "**/pnpm*.yaml",
+    "**/dist/**",
+    "**/*.gen.ts",
+    "**/.output/**",
+    "**/.data/**",
+    "**/.nuxt/**",
+    "**/.nitro/**",
+    "**/.cache/**",
+    "**/node_modules/**",
+    "**/coverage/**",
+    "**/playwright-report/**",
+    "**/test-results/**",
+    "**/.pgdata/**",
+    "**/drizzle/**"
+  ]
+}

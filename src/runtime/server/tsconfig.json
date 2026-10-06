@@ -1,3 +1,11 @@
 {
+  // Server runtime code is typed against the server context, not the Vue app —
+  // hence its own tsconfig, mirroring how Nuxt splits app/server/shared.
   "extends": "../../../.nuxt/tsconfig.server.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  // Overriding `include` drops the generated entries, so the server type entry
+  // (runtime config, route rules, … augmentations) is re-added explicitly.
+  "include": ["../../../.nuxt/types/nitro-nuxt.d.ts", "../../schema.d.ts", "./**/*.ts"]
 }

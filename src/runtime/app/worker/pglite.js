@@ -1,11 +1,9 @@
 import { worker } from '@electric-sql/pglite/worker'
 import { PGlite } from '@electric-sql/pglite'
 
-import {
-  extensions as exts,
-} from '#build/pglite/extensions'
+import { extensions as exts } from '#build/pglite/extensions'
 
-worker({
+void worker({
   async init(options) {
     const { dataDir, ...opts } = options
 

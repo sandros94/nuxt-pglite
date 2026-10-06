@@ -1,12 +1,24 @@
 packages:
-  - ./
-  - docs
   - playground
+  - test/fixtures/*
 
 catalog:
-  nuxt: ^4.2.2
+  nuxt: npm:nuxt@^4.6.0
+  vue: npm:vue@^3.5.43
 
-ignoredBuiltDependencies:
-  - '@parcel/watcher'
-  - esbuild
-  - unrs-resolver
+minimumReleaseAgeStrict: true
+
+minimumReleaseAgeExclude:
+  - 'nuxt'
+  - '@nuxt/*'
+
+allowBuilds:
+  '@parcel/watcher': false
+  'better-sqlite3': true
+  cpu-features: false
+  esbuild: false
+  protobufjs: false
+  'sharp@0.34.5': true
+  simple-git-hooks: true
+  ssh2: false
+  vue-demi: false

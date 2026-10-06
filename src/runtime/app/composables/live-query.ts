@@ -27,30 +27,31 @@ import type {
 
 type UnsubscribeFn = () => Promise<void>
 type QueryParams = unknown[] | undefined | null
-type QueryResult<T>
-  = | Omit<Results<T>, 'affectedRows'>
-    | { rows: undefined, fields: undefined, blob: undefined }
+type QueryResult<T> =
+  | Omit<Results<T>, 'affectedRows'>
+  | { rows: undefined; fields: undefined; blob: undefined }
 type LiveQueryResults<T> = ToRefs<DeepReadonly<QueryResult<T>>>
-type PGliteInstance<T extends Extensions>
-  = | PGliteWorker<PGliteWorkerOptions<T>>
-    | PGlite<PGliteOptions<T>>
+type PGliteInstance<T extends Extensions> =
+  | PGliteWorker<PGliteWorkerOptions<T>>
+  | PGlite<PGliteOptions<T>>
 
 function useLiveQueryImpl<T = { [key: string]: unknown }>(
   query: string | WatchSource<string>,
   params?: QueryParams | WatchSource<QueryParams> | WatchSource<unknown>[],
   key?: string | WatchSource<string>,
 ): LiveQueryResults<T> {
-  if (import.meta.server) throw createError({
-    statusCode: 500,
-    statusMessage: 'Client-side only',
-    message: '[pglite] `useLiveQuery()` and `useLiveIncrementalQuery()` composables should only be called client-side',
-  })
+  if (import.meta.server)
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Client-side only',
+      message:
+        '[pglite] `useLiveQuery()` and `useLiveIncrementalQuery()` composables should only be called client-side',
+    })
 
   const db = usePGlite() as PGliteInstance<{ live: typeof live }>
 
   const liveUpdate = shallowReactive<
-    | Omit<Results<T>, 'affectedRows'>
-    | { rows: undefined, fields: undefined, blob: undefined }
+    Omit<Results<T>, 'affectedRows'> | { rows: undefined; fields: undefined; blob: undefined }
   >({
     rows: undefined,
     fields: undefined,
@@ -61,11 +62,7 @@ function useLiveQueryImpl<T = { [key: string]: unknown }>(
   const unsubscribeRef = shallowRef<UnsubscribeFn>()
 
   const querySource = typeof query === 'string' ? ref(query) : query
-  const paramsSources = !params
-    ? []
-    : Array.isArray(params)
-      ? params.map(ref)
-      : [ref(params)]
+  const paramsSources = !params ? [] : Array.isArray(params) ? params.map(ref) : [ref(params)]
 
   const keySource = typeof key === 'string' ? ref(key) : key
 
@@ -84,20 +81,20 @@ function useLiveQueryImpl<T = { [key: string]: unknown }>(
         }
       }
 
-      const query = isRef(querySource) ? unref(querySource) : querySource()
+      const queryVal = isRef(querySource) ? unref(querySource) : querySource()
 
       const paramVals = Array.isArray(params)
-        ? params.map(p => typeof p === 'function' ? p() : unref(p))
+        ? params.map((p) => (typeof p === 'function' ? p() : unref(p)))
         : typeof params === 'function'
           ? params()
           : unref(params)
 
-      const key = isRef(keySource) ? keySource.value : keySource?.()
+      const keyVal = isRef(keySource) ? keySource.value : keySource?.()
 
-      const ret
-        = key !== undefined
-          ? db.live.incrementalQuery<T>(query, paramVals, key, cb)
-          : db.live.query<T>(query, paramVals, cb)
+      const ret =
+        keyVal !== undefined
+          ? db.live.incrementalQuery<T>(queryVal, paramVals, keyVal, cb)
+          : db.live.query<T>(queryVal, paramVals, cb)
 
       unsubscribeRef.value = () => {
         cancelled = true

@@ -1,18 +1,26 @@
 {
-  "private": true,
   "name": "nuxt-pglite-playground",
+  "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nuxi dev",
-    "build": "nuxi build",
-    "generate": "nuxi generate"
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "typecheck": "nuxt typecheck --checker=golar",
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "drizzle-orm": "^0.45.1",
-    "nuxt-pglite": "latest",
-    "nuxt": "catalog:"
+    "drizzle-orm": "npm:drizzle-orm@^0.45.3",
+    "nuxt": "catalog:",
+    "nuxt-pglite": "workspace:*",
+    "vue": "catalog:"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.31.8"
+    "@golar/vue": "npm:@golar/vue@^0.1.10",
+    "drizzle-kit": "npm:drizzle-kit@^0.31.11",
+    "golar": "npm:golar@^0.1.10"
   }
 }

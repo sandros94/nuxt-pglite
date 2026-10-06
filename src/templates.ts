@@ -1,7 +1,7 @@
 import { addServerTemplate, addTemplate } from '@nuxt/kit'
 
 import type { ExtensionName } from './runtime/types'
-import type { ModuleOptions } from './module'
+import type { ModuleOptions } from './types'
 
 const extensionSources = {
   live: '@electric-sql/pglite/live',
@@ -30,18 +30,14 @@ const extensionSources = {
   uuid_ossp: '@electric-sql/pglite/contrib/uuid_ossp',
 } as const
 
-function getExtensions(extensions: ExtensionName[] = []) {
+export function getExtensions(extensions: ExtensionName[] = []) {
   if (extensions.length === 0) return undefined
   const imports: string[] = []
   const exts: string[] = []
 
   extensions.forEach((extension) => {
     imports.push(`import { ${extension} } from '${extensionSources[extension]}'`)
-    exts.push(
-      extension === 'electricSync'
-        ? 'electric: electricSync()'
-        : extension,
-    )
+    exts.push(extension === 'electricSync' ? 'electric: electricSync()' : extension)
   })
 
   return {
@@ -50,7 +46,7 @@ function getExtensions(extensions: ExtensionName[] = []) {
   }
 }
 
-export async function addTemplates(options: ModuleOptions) {
+export function addTemplates(options: ModuleOptions) {
   const clientExts = getExtensions(options.client?.extensions)
   const serverExts = getExtensions(options.server?.extensions)
 
@@ -58,11 +54,13 @@ export async function addTemplates(options: ModuleOptions) {
     write: true,
     filename: 'pglite/extensions.ts',
     getContents() {
-      if (clientExts === undefined) return `export const extensions = {}
+      if (clientExts === undefined)
+        return `export const extensions = {}
 
 export default { extensions }
 `
-      else return `${clientExts.imports.join('\n')}
+      else
+        return `${clientExts.imports.join('\n')}
 
 export const extensions = {
   ${clientExts.extensions.join(',\n\t')}
@@ -75,11 +73,13 @@ export default { extensions }
   addServerTemplate({
     filename: '#pglite/server-extensions.js',
     getContents() {
-      if (serverExts === undefined) return `export const extensions = {}
+      if (serverExts === undefined)
+        return `export const extensions = {}
 
 export default { extensions }
 `
-      else return `${serverExts.imports.join('\n')}
+      else
+        return `${serverExts.imports.join('\n')}
 
 export const extensions = {
   ${serverExts.extensions.join(',\n\t')}

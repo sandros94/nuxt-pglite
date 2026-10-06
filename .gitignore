@@ -1,4 +1,4 @@
-# .gitignore v1.4.0
+# .gitignore v1.8.0
 # https://gist.github.com/Sandros94/7f3dc1539c8f5905c495aa1bb417589c
 
 # Dependencies
@@ -6,11 +6,17 @@ node_modules
 
 # Temp directories
 .temp
-.tmp
+*.tmp*
 .cache
+.eslintcache
 
-# Generated dirs
+# Build output
 dist
+dist-ssr
+*.tsbuildinfo
+
+# Vite
+.vite
 
 # Nuxt
 .nitro
@@ -38,22 +44,40 @@ reports
 coverage
 *.lcov
 .nyc_output
+tsconfig.vitest-temp.json
+__screenshots__/
+*.timestamp-*-*.mjs
+test-results/
+playwright-report/
 
 # Logs
 logs
-*.log
+*.log*
+
+# Agents
+.agents/agent-memory/
+.agents/worktrees/
+.claude/agent-memory/
+.claude/worktrees/
 
 # VSCode
+.history
 .vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/mcp.json
 !.vscode/settings.json
 !.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
 !.vscode/*.code-snippets
 
-# Intellij idea
+# Editor directories and files
 *.iml
 .idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
 # OSX
 .DS_Store
@@ -61,9 +85,21 @@ logs
 .LSOverride
 .AppleDB
 .AppleDesktop
+.Spotlight-V100
+.Trashes
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Various
+.profile
+*.local
 
 # Project specific
 /playground/server/database/pglite

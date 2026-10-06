@@ -1,15 +1,13 @@
 # Nuxt PGlite
 
-[![npm version][npm-version-src]][npm-version-href]
-[![npm downloads][npm-downloads-src]][npm-downloads-href]
-[![License][license-src]][license-href]
-[![Nuxt][nuxt-src]][nuxt-href]
+[![npm version][npm-version-src]][npm-version-href] [![npm downloads][npm-downloads-src]][npm-downloads-href] [![License][license-src]][license-href] [![Nuxt][nuxt-src]][nuxt-href]
 
 A Nuxt module aimed to simplify the use of [PGlite](https://pglite.dev).
-> PGlite, an Embeddable Postgres
-> Run a full Postgres database locally in WASM with reactivity and live sync.
+
+> PGlite, an Embeddable Postgres Run a full Postgres database locally in WASM with reactivity and live sync.
 
 - [✨ &nbsp;Release Notes](/CHANGELOG.md)
+
 <!-- - [🏀 Online playground](https://stackblitz.com/github/sandros94/nuxt-pglite?file=playground%2Fapp.vue) -->
 <!-- - [📖 &nbsp;Documentation](https://example.com) -->
 
@@ -19,6 +17,7 @@ A Nuxt module aimed to simplify the use of [PGlite](https://pglite.dev).
 ## Features
 
 <!-- Highlight some of the features your module provide here -->
+
 - ⚡️&nbsp;Server-side `usePGlite`, running in your Node, Bun or Deno servers.
 - 🧑‍💻&nbsp;Client-side `usePGlite`, running inside Web Workers.
 - 🪢&nbsp;Client-side `useLiveQuery` and `useLiveIncrementalQuery` to subscribe to live changes.
@@ -175,6 +174,7 @@ declare module '#pglite-utils' {
 ### Hooking Notes
 
 A few things to consider are that:
+
 - we rely on `nuxtApp` hooks for client-side, while `nitroApp` for server-side, hooks available are:
   - `pglite:config`: provides access to `PGliteOptions` before initializing a new PGlite instance.
   - `pglite:init`: provides access to the initialized PGlite instance.
@@ -187,6 +187,7 @@ Any ORM that accept a PGlite or PGliteWorker instances should be supported both 
 ### Drizzle
 
 Drizzle integration for server-side is as simple as:
+
 ```ts
 import { drizzle } from 'drizzle-orm/pglite'
 import * as schema from '../my-path-to/schema'
@@ -201,30 +202,38 @@ export function useDB() {
 
 <details>
   <summary>Local development</summary>
-  
-  ```bash
-  # Install dependencies
-  pnpm install
-  
-  # Generate type stubs
-  pnpm run dev:prepare
-  
-  # Develop with the playground
-  pnpm run dev
-  
-  # Build the playground
-  pnpm run dev:build
-  
-  # Run ESLint
-  pnpm run lint
-  
-  # Run Vitest
-  pnpm run test
-  pnpm run test:watch
-  
-  # Release new version
-  pnpm run release
-  ```
+
+```bash
+# Install dependencies (also stubs dist/ and prepares the playground)
+pnpm install
+
+# Develop with the playground
+pnpm dev
+
+# Lint and format
+pnpm lint
+pnpm fmt
+
+# Typecheck (module sources with tsc, playground with golar)
+pnpm typecheck
+
+# Test
+pnpm test
+pnpm test:unit
+pnpm test:e2e
+
+# Build the module
+pnpm build
+```
+
+</details>
+
+<details>
+  <summary>Releasing</summary>
+
+Releases are automated by [uppt](https://github.com/danielroe/uppt): pushing to `main` opens a draft `release/vX.Y.Z` PR built from the conventional commits since the last tag. Merging it tags the commit, publishes the GitHub Release, then packs and stages the tarball to npm through OIDC trusted publishing — which waits for your 2FA approval in the `npm` environment.
+
+Nothing to run locally; just write conventional commits.
 
 </details>
 
@@ -232,16 +241,13 @@ export function useDB() {
 
 Published under the [MIT](/LICENSE) license.
 
-
 <!-- Badges -->
+
 [npm-version-src]: https://img.shields.io/npm/v/nuxt-pglite/latest.svg?style=flat&colorA=020420&colorB=00DC82
 [npm-version-href]: https://npmjs.com/package/nuxt-pglite
-
 [npm-downloads-src]: https://img.shields.io/npm/dm/nuxt-pglite.svg?style=flat&colorA=020420&colorB=00DC82
 [npm-downloads-href]: https://npmjs.com/package/nuxt-pglite
-
 [license-src]: https://img.shields.io/npm/l/nuxt-pglite.svg?style=flat&colorA=020420&colorB=00DC82
 [license-href]: https://npmjs.com/package/nuxt-pglite
-
 [nuxt-src]: https://img.shields.io/badge/Nuxt-020420?logo=nuxt.js
 [nuxt-href]: https://nuxt.com
