@@ -1,0 +1,85 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck code
+        run: pnpm typecheck
+
+      - name: Build module
+        run: pnpm build
+
+  test:
+    needs: check
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [unit, e2e]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Install Playwright browser
+        if: matrix.project == 'browser'
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Test ${{ matrix.project }}
+        id: test
+        run: |
+          set -o pipefail
+          pnpm test:${{ matrix.project }} 2>&1 | tee "/tmp/test-${{ matrix.project }}.log"
+
+      - name: Test summary
+        if: always()
+        continue-on-error: true
+        run: |
+          {
+            echo "### ${{ matrix.project }} — ${{ steps.test.outcome == 'success' && '✅ passed' || '❌ failed' }}"
+            echo '```'
+            tail -n 30 "/tmp/test-${{ matrix.project }}.log" | sed -E 's/\x1b\[[0-9;]*m//g'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  preview:
+    needs: test
+    if: github.event_name == 'pull_request' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Build module
+        run: pnpm build
+
+      - name: Publish preview
+        run: pnpm dlx pkg-pr-new publish --pnpm --compact
