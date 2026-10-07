@@ -78,11 +78,14 @@ export async function setupServer(
     return
   }
 
+  // A full file path, so that any bundler resolves the generated import.
+  const corePath = await resolver.resolvePath('./runtime/core')
+
   addServerTemplate({
     filename: CONFIG_ID,
     getContents: () =>
       [
-        `import { assertConfigKind, resolveEnvConfig } from ${JSON.stringify(resolver.resolve('./runtime/core'))}`,
+        `import { assertConfigKind, resolveEnvConfig } from ${JSON.stringify(corePath)}`,
         configPath
           ? `import userConfig from ${JSON.stringify(configPath)}`
           : `const userConfig = {}`,

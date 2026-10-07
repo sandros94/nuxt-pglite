@@ -15,6 +15,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     configKey: 'pglite',
     compatibility: {
       nuxt: '>=4.6.0',
+      nitro: '>=2.13.0',
     },
   },
   defaults: {

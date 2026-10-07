@@ -40,6 +40,13 @@ export async function setupClient(
   if (!options.enabled) {
     return
   }
+  // The worker, its wasm and its data file are wired for Vite; under webpack
+  // PGlite's filesystem bundle comes out resized and fails at startup.
+  if (nuxt.options.builder !== '@nuxt/vite-builder') {
+    throw new Error(
+      `[nuxt-pglite] \`pglite.client\` needs the Vite builder; got \`${typeof nuxt.options.builder === 'string' ? nuxt.options.builder : 'a custom builder'}\`. Disable the client side or switch builder.`,
+    )
+  }
 
   // The worker is an ES module and PGlite must not be pre-bundled: its wasm
   // and the worker entry are resolved relative to the package.
@@ -51,6 +58,13 @@ export async function setupClient(
 
   // The config is imported by the main thread and by the worker, so it lives
   // in a template both bundles can reach through the alias.
+  // Full file paths: a generated module's imports are resolved by whichever
+  // bundler builds it, and not all of them resolve a bare directory.
+  const [corePath, clientConfigPath] = await Promise.all([
+    resolver.resolvePath('./runtime/core'),
+    resolver.resolvePath('./runtime/client/config'),
+  ])
+
   // The worker bundle is built without Nuxt's auto-import transform, so the
   // config's `definePGliteClientConfig` is provided as a global by a module
   // evaluated before it. The app's own transform is unaffected.
@@ -59,7 +73,7 @@ export async function setupClient(
     write: true,
     getContents: () =>
       [
-        `import { definePGliteClientConfig } from ${JSON.stringify(resolver.resolve('./runtime/client/config'))}`,
+        `import { definePGliteClientConfig } from ${JSON.stringify(clientConfigPath)}`,
         `globalThis.definePGliteClientConfig ??= definePGliteClientConfig`,
       ].join('\n'),
   })
@@ -69,7 +83,7 @@ export async function setupClient(
     getContents: () =>
       [
         `import ${JSON.stringify(shim.dst)}`,
-        `import { assertConfigKind, resolveEnvConfig } from ${JSON.stringify(resolver.resolve('./runtime/core'))}`,
+        `import { assertConfigKind, resolveEnvConfig } from ${JSON.stringify(corePath)}`,
         configPath
           ? `import userConfig from ${JSON.stringify(configPath)}`
           : `const userConfig = {}`,
