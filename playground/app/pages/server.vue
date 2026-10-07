@@ -6,22 +6,8 @@
       </li>
     </ul>
     <div style="display: inline-flex; gap: 0.5rem">
-      <button
-        @click.prevent="
-          reset()
-          query()
-        "
-      >
-        Reset DB
-      </button>
-      <button
-        @click.prevent="
-          insert()
-          query()
-        "
-      >
-        Insert
-      </button>
+      <button @click.prevent="resetAndQuery()">Reset DB</button>
+      <button @click.prevent="insertAndQuery()">Insert</button>
     </div>
     <pre v-if="data">
       {{ data }}
@@ -33,14 +19,12 @@
 <script setup lang="ts">
 const { data, refresh: query } = await useFetch('/api/read')
 
-async function reset() {
-  await $fetch('/api/reset', {
-    method: 'POST',
-  })
+async function resetAndQuery() {
+  await $fetch('/api/reset', { method: 'POST' })
+  await query()
 }
-async function insert() {
-  await $fetch('/api/insert', {
-    method: 'POST',
-  })
+async function insertAndQuery() {
+  await $fetch('/api/insert', { method: 'POST' })
+  await query()
 }
 </script>

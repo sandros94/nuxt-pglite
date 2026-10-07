@@ -6,18 +6,10 @@ export default defineNuxtConfig({
 
   pglite: {
     client: {
-      extensions: ['live', 'vector'],
-      options: {
-        // dataDir: 'memory://nuxt-pglite',
-        dataDir: 'idb://nuxt-pglite',
-        // dataDir: 'opfs-ahp://nuxt-pglite',
-      },
+      enabled: true,
     },
     server: {
-      options: {
-        // dataDir: 'memory://nuxt-pglite',
-        dataDir: '.data/pglite',
-      },
+      socket: { port: 5433 },
     },
   },
 
