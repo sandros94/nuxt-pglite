@@ -1,5 +1,4 @@
 import { mkdirSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { dirname, isAbsolute, relative, resolve } from 'pathe'
 import {
@@ -9,20 +8,21 @@ import {
   addTypeTemplate,
   findPath,
   importModule,
-  resolvePath,
   useLogger,
+  useTerminal,
 } from '@nuxt/kit'
 import type { Resolver } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 import defu from 'defu'
-import { findDynamicImports, findStaticImports, parseStaticImport } from 'mlly'
+import type { PGlite } from '@electric-sql/pglite'
 
 import { assertConfigKind, definePGliteConfig, resolveEnvConfig } from './runtime/core'
 import type { PGliteConfig } from './runtime/core'
 import { definePGliteClientConfig } from './runtime/client/config'
 import { createPGliteSocketServer } from './runtime/socket'
+import { importedPackages } from './utils/imports'
 import type { PGliteSocketServer } from './runtime/socket'
-import type { ModuleOptions, SocketOptions } from './types'
+import type { ServerOptions, SocketOptions } from './types'
 
 const CONFIG_ID = '#pglite/server-config'
 
@@ -31,11 +31,19 @@ function isPathDataDir(dataDir: string) {
   return !/^[a-z-]+:\/\//.test(dataDir)
 }
 
+/** What the development tooling needs from the server side. */
+export interface ServerSetup {
+  /** The development socket and the instance it serves, when it runs. */
+  socket?: RunningSocket
+  /** The `nuxt.config` data directory, resolved; the config file may override it at runtime. */
+  dataDir?: string
+}
+
 export async function setupServer(
-  options: ModuleOptions['server'],
+  options: ServerOptions,
   nuxt: Nuxt,
   resolver: Resolver,
-) {
+): Promise<ServerSetup> {
   const logger = useLogger('nuxt-pglite')
 
   // A path from `nuxt.config` is resolved here, from the root directory; one
@@ -75,7 +83,7 @@ export async function setupServer(
 
   addServerTypes(configPath, resolver)
   if (!options.enabled) {
-    return
+    return { socket, dataDir: defaults.dataDir }
   }
 
   // A full file path, so that any bundler resolves the generated import.
@@ -115,6 +123,8 @@ export async function setupServer(
     nitro2: resolver.resolve('./runtime/server/plugins/pglite.nitro2'),
     nitro3: resolver.resolve('./runtime/server/plugins/pglite.nitro3'),
   })
+
+  return { socket, dataDir: defaults.dataDir }
 }
 
 function nuxtEnv(nuxt: Nuxt) {
@@ -172,42 +182,12 @@ async function loadConfig(configPath: string): Promise<PGliteConfig> {
   }
 }
 
-/**
- * Packages the config file imports, following its relative imports, so that the
- * extension packages it loads can be traced into the output. Aliased imports
- * are left to the bundler, which resolves them itself.
- */
-async function importedPackages(file: string, seen = new Set<string>()): Promise<string[]> {
-  const resolved = (await resolvePath(file)) || file
-  if (seen.has(resolved)) {
-    return []
-  }
-  seen.add(resolved)
-
-  const source = await readFile(resolved, 'utf8').catch(() => '')
-  const specifiers = [
-    ...findStaticImports(source).map((i) => parseStaticImport(i).specifier),
-    ...findDynamicImports(source)
-      .map((i) => /^["'`]([^"'`]+)["'`]$/.exec(i.expression.trim())?.[1])
-      .filter((specifier) => specifier !== undefined),
-  ]
-
-  const packages: string[] = []
-  for (const specifier of specifiers) {
-    if (specifier.startsWith('.')) {
-      packages.push(...(await importedPackages(resolve(dirname(resolved), specifier), seen)))
-    } else if (!/^[#~@]\/|^[a-z]+:/.test(specifier)) {
-      const name = /^(@[^/]+\/[^/]+|[^/]+)/.exec(specifier)?.[1]
-      if (name && name !== 'nuxt-pglite') {
-        packages.push(name)
-      }
-    }
-  }
-  return [...new Set(packages)]
-}
-
 interface RunningSocket {
   server: PGliteSocketServer
+  /** The served instance, which lives in this process. */
+  db: PGlite
+  /** The resolved server config the instance was created from. */
+  config: PGliteConfig
   dataDir: string | undefined
 }
 
@@ -216,9 +196,9 @@ interface RunningSocket {
  * server reloads and is reachable while the app builds or prerenders.
  */
 async function startSocket(
-  options: ModuleOptions['server'],
+  options: ServerOptions,
   nuxt: Nuxt,
-  defaults: ModuleOptions['server']['options'],
+  defaults: ServerOptions['options'],
   configPath: string | undefined,
   logger: ReturnType<typeof useLogger>,
 ): Promise<RunningSocket> {
@@ -228,6 +208,38 @@ async function startSocket(
   const userConfig = configPath ? await loadConfig(configPath) : {}
   const config: PGliteConfig = resolveEnvConfig({ ...defaults, ...userConfig }, nuxtEnv(nuxt))
 
+  // Rendered by the `nuxt dev` UI when it runs, logged otherwise; the error
+  // of a failed start propagates and is reported by Nuxt.
+  const task = useTerminal().startTask('Starting PGlite…')
+  const { db, server } = await serve(config, serverOptions, nuxt, logger).catch(
+    (error: unknown) => {
+      task.stop('PGlite socket could not start', 'failure')
+      throw error
+    },
+  )
+
+  nuxt.options.runtimeConfig.pglite.url = server.url
+  if (env && !process.env[env]) {
+    process.env[env] = server.url
+    task.stop(`PGlite socket listening at ${server.url} (${env})`)
+  } else {
+    task.stop(`PGlite socket listening at ${server.url}`)
+  }
+
+  nuxt.hook('close', async () => {
+    await server.close()
+    await db.close()
+  })
+
+  return { server, db, config, dataDir: config.dataDir }
+}
+
+async function serve(
+  config: PGliteConfig,
+  serverOptions: Omit<SocketOptions, 'env'>,
+  nuxt: Nuxt,
+  logger: ReturnType<typeof useLogger>,
+) {
   const { PGlite } = await importModule<typeof import('@electric-sql/pglite')>(
     '@electric-sql/pglite',
     {
@@ -245,19 +257,5 @@ async function startSocket(
         : serverOptions.path,
     logger: (...message: unknown[]) => logger.warn(message.map(String).join(' ')),
   }).listen()
-
-  nuxt.options.runtimeConfig.pglite.url = server.url
-  if (env && !process.env[env]) {
-    process.env[env] = server.url
-    logger.info(`PGlite socket listening at ${server.url} (${env})`)
-  } else {
-    logger.info(`PGlite socket listening at ${server.url}`)
-  }
-
-  nuxt.hook('close', async () => {
-    await server.close()
-    await db.close()
-  })
-
-  return { server, dataDir: config.dataDir }
+  return { db, server }
 }

@@ -5,6 +5,12 @@
 export { definePGliteConfig } from './config'
 export { assertConfigKind, resolveEnvConfig } from './kind'
 export type { ConfigKind, EnvOverrides } from './kind'
-export type { PGliteConfig, PGliteInstanceFor } from './config'
+export type {
+  PGliteConfig,
+  PGliteInstanceFor,
+  PGliteServerAction,
+  PGliteServerActionContext,
+} from './config'
+export type { PGliteAction, PGliteActionInfo, PGliteActionSide } from './actions'
 export { createPGliteProvider } from './provider'
 export type { Closable, InitScope, PGliteProvider, PGliteProviderOptions } from './provider'

@@ -24,7 +24,10 @@ describe('e2e: module against the basic fixture', async () => {
   })
 
   it('queries the server PGlite instance with a configured extension', async () => {
-    expect(await $fetch('/api/query')).toEqual({ sum: 2, ci: true })
+    // Typed explicitly: the route is the fixture's, unknown here, and resolving
+    // it through Nitro 3's route types can exceed TypeScript's depth limit
+    // depending on unrelated declarations in the program.
+    expect(await $fetch<unknown>('/api/query')).toEqual({ sum: 2, ci: true })
   })
 
   it('ships no PGlite in the client bundle while the client side is disabled', async () => {

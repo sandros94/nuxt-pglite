@@ -103,7 +103,7 @@ A config file that exists while its side is disabled (and, for the server, has n
 
 ### PGlite in development only
 
-The socket runs in the Nuxt process, so it works with the server side disabled. Nothing from PGlite ends up in the build, and the same driver code reads the real `DATABASE_URL` in production:
+The socket does not depend on the server side, so it works with it disabled. Nothing from PGlite ends up in the build, and the same driver code reads the real `DATABASE_URL` in production:
 
 ```ts
 export default defineNuxtConfig({
@@ -130,7 +130,7 @@ export default defineNuxtConfig({
 })
 ```
 
-While `nuxt dev` runs, the module creates the configured instance in the Nuxt process and serves it over TCP. The URL is logged, set as `DATABASE_URL` if that variable is unset (`socket.env` renames or disables this), and available as `useRuntimeConfig().pglite.url`.
+While `nuxt dev` runs, the module creates the configured instance and serves it over TCP, so anything that speaks Postgres connects to it as it would to a normal server. The URL is logged, set as `DATABASE_URL` if that variable is unset (`socket.env` renames or disables this), and available as `useRuntimeConfig().pglite.url`.
 
 Your database code then needs no PGlite branch at all:
 
@@ -205,6 +205,97 @@ async function add(title: string) {
 `useLiveQuery(query, params?)` and `useLiveIncrementalQuery(query, params, key)` accept strings, refs or getters and re-subscribe when they change; `useLiveQuery.sql` is a tagged-template form. They need `live` in `clientExtensions`. All of these are client-only; call them from `.client.vue` components or behind `<ClientOnly>`.
 
 Server and client composables share the name `usePGlite`: the auto-import resolves to the right one per context, and `#pglite/server` / `#pglite/client` import either explicitly.
+
+## Development tools
+
+In `nuxt dev`, and only there, the module adds a **PGlite** tab to [Nuxt DevTools](https://devtools.nuxt.com): the configuration of each side, the socket URL with its live connection count, an SQL box for each instance (the server's, and the browser's in the app's tab) and your **actions**. Nothing of it is registered in a build.
+
+```ts
+export default defineNuxtConfig({
+  pglite: {
+    devtools: {
+      enabled: true, // the tab, when DevTools itself is enabled
+      actions: [], // `process` actions, see below
+    },
+  },
+})
+```
+
+### Actions
+
+An action is a named operation you run from the tab: seeding, a reset, a migration CLI, a studio. It is defined next to what it needs and runs there; only its `id`, `label` and `description`, and then its result, reach the tab. There are three kinds, by where they run.
+
+**`server`**, in the server config, run against the server instance:
+
+```ts
+// server/pglite.config.ts
+import { readFile } from 'node:fs/promises'
+
+export default definePGliteServerConfig({
+  actions: [
+    {
+      id: 'seed',
+      label: 'Seed the database',
+      description: 'Runs server/database/seed.sql',
+      run: async ({ pg }) => {
+        await pg.exec(await readFile('server/database/seed.sql', 'utf8'))
+      },
+    },
+  ],
+})
+```
+
+**`client`**, in the client config, run in the app's tab against its worker instance:
+
+```ts
+// app/pglite.config.ts
+export default definePGliteClientConfig({
+  actions: [
+    {
+      id: 'clear',
+      label: 'Clear local todos',
+      run: async ({ pg }) => (await pg.query('DELETE FROM todos')).affectedRows,
+    },
+  ],
+})
+```
+
+**`process`**, in `nuxt.config.ts`, run outside the app with `{ socketUrl, dataDir, startSubprocess, terminal, logger }`: the place for CLIs and tools that reach the database through the socket URL, as any Postgres client would. `startSubprocess` streams the command's output to a terminal in DevTools:
+
+```ts
+import type { PGliteProcessAction } from 'nuxt-pglite'
+
+const migrate: PGliteProcessAction = {
+  id: 'migrate',
+  label: 'Run migrations',
+  run: ({ socketUrl, startSubprocess }) => {
+    startSubprocess(
+      { command: 'pnpm', args: ['exec', 'some-cli', 'migrate'], env: { DATABASE_URL: socketUrl } },
+      { id: 'migrate', name: 'Migrations' },
+    )
+  },
+}
+
+export default defineNuxtConfig({
+  pglite: { devtools: { actions: [migrate] } },
+})
+```
+
+Other modules add `process` actions through a hook, called once every module is set up:
+
+```ts
+nuxt.hook('pglite:devtools:actions', (actions) => {
+  actions.push({ id: 'my-module:studio', label: 'Open the studio', run: () => {} })
+})
+```
+
+Ids are unique per kind. A `run` may return a value, shown in the tab once reduced to JSON, or throw, shown as the error. `server` and `client` actions are typed from their config, so `pg` carries your extensions; annotate an action written on its own with `PGliteServerAction` or `PGliteClientAction`.
+
+While the development socket runs, `server` actions and the SQL box run against the instance the socket serves, queued like any other client's statements. Without the socket they run in Nitro through `usePGlite()`.
+
+### Terminal
+
+The socket's startup shows as a task in the `nuxt dev` UI. When that UI runs (it does not after a restart into a forked process) and there are `server` or `process` actions, calling the `pglite:devtools:prompt` hook opens a picker in the terminal; the chosen action runs as a task that ends with its result, as runs from the tab do for `process` actions. The UI has no way for a module to add a key of its own, so something has to call the hook, e.g. another module.
 
 ## Outside Nuxt
 

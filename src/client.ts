@@ -3,15 +3,12 @@ import { addImports, addPlugin, addTemplate, addTypeTemplate, findPath, useLogge
 import type { Resolver } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 
-import type { ModuleOptions } from './types'
+import type { ClientOptions } from './types'
+import { importedPackages } from './utils/imports'
 
 const CONFIG_ID = '#pglite/client-config'
 
-export async function setupClient(
-  options: ModuleOptions['client'],
-  nuxt: Nuxt,
-  resolver: Resolver,
-) {
+export async function setupClient(options: ClientOptions, nuxt: Nuxt, resolver: Resolver) {
   const configPath = (await findPath(options.config, { cwd: nuxt.options.rootDir })) ?? undefined
   if (configPath && !options.enabled) {
     useLogger('nuxt-pglite').warn(
@@ -49,10 +46,15 @@ export async function setupClient(
   }
 
   // The worker is an ES module and PGlite must not be pre-bundled: its wasm
-  // and the worker entry are resolved relative to the package.
+  // and the worker entry are resolved relative to the package. Nor may the
+  // packages the config imports be, since the optimizer would inline PGlite
+  // into their chunk and lose those references again.
   nuxt.options.vite.optimizeDeps ||= {}
   nuxt.options.vite.optimizeDeps.exclude ||= []
-  nuxt.options.vite.optimizeDeps.exclude.push('@electric-sql/pglite')
+  nuxt.options.vite.optimizeDeps.exclude.push(
+    '@electric-sql/pglite',
+    ...(configPath ? await importedPackages(configPath) : []),
+  )
   nuxt.options.vite.worker ||= {}
   nuxt.options.vite.worker.format = 'es'
 

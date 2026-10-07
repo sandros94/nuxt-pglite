@@ -1,6 +1,7 @@
 import type { Extensions, PGliteInterfaceExtensions } from '@electric-sql/pglite'
 import type { PGliteWorker, PGliteWorkerOptions } from '@electric-sql/pglite/worker'
 
+import type { PGliteAction } from '../core/actions'
 import { markConfig } from '../core/kind'
 import type { EnvOverrides } from '../core/kind'
 
@@ -22,7 +23,21 @@ export interface PGliteClientConfig<
   init?: (pg: PGliteClientInstanceFor<PGliteClientConfig<E, C>>) => void | Promise<void>
   /** Runs before the instance is closed through its provider. */
   dispose?: (pg: PGliteClientInstanceFor<PGliteClientConfig<E, C>>) => void | Promise<void>
+  /** Development tooling for this instance; nothing of it runs in a build. */
+  devtools?: {
+    /** Operations listed in Nuxt DevTools, run on demand in the app's tab against the worker instance. */
+    actions?: PGliteClientAction<C>[]
+  }
 }
+
+/** What a client action receives: the instance the app's tab holds. */
+export interface PGliteClientActionContext<C extends Extensions = {}> {
+  pg: PGliteWorker & PGliteInterfaceExtensions<C>
+}
+
+export type PGliteClientAction<C extends Extensions = {}> = PGliteAction<
+  PGliteClientActionContext<C>
+>
 
 /** The instance `PGliteWorker.create()` returns for the given config. */
 export type PGliteClientInstanceFor<C extends PGliteClientConfig<Extensions, Extensions>> =

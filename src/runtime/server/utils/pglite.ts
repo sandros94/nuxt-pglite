@@ -6,9 +6,14 @@ import config, { socketDataDir } from '#pglite/server-config'
 
 type Provider = ReturnType<typeof createProvider>
 
-function createProvider() {
+/** The config with its runtime overrides applied: what the instance is created from. */
+export function resolveServerConfig(): typeof config {
   const { dataDir } = useRuntimeConfig().pglite
-  const resolved = dataDir ? { ...config, dataDir } : config
+  return dataDir ? { ...config, dataDir } : config
+}
+
+function createProvider() {
+  const resolved = resolveServerConfig()
 
   if (socketDataDir !== undefined && resolved.dataDir === socketDataDir) {
     throw new Error(

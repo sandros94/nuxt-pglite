@@ -9,8 +9,16 @@ import config from '#pglite/client-config'
 type Instance = PGliteClientInstanceFor<typeof config>
 
 function createProvider(): PGliteProvider<Instance> {
-  // The worker loads `extensions` itself from the same config.
-  const { init, dispose, extensions: _workerExtensions, clientExtensions, ...options } = config
+  // The worker loads `extensions` itself from the same config; the rest of
+  // what is not options holds functions, which cannot be posted to it.
+  const {
+    init,
+    dispose,
+    devtools: _devtools,
+    extensions: _workerExtensions,
+    clientExtensions,
+    ...options
+  } = config
 
   return createPGliteProvider({
     create: () =>

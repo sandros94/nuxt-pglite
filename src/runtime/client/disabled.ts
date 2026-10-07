@@ -4,7 +4,7 @@
  * instead of pulling the engine into the bundle.
  */
 export { definePGliteClientConfig } from './config'
-export type { PGliteClientConfig, PGliteClientInstanceFor } from './config'
+export type { PGliteClientAction, PGliteClientConfig, PGliteClientInstanceFor } from './config'
 
 const message =
   '[nuxt-pglite] `pglite.client` is disabled: `usePGlite()` has no instance in the browser.'

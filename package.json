@@ -56,6 +56,7 @@
     "test:browser": "playwright test"
   },
   "dependencies": {
+    "@nuxt/devtools-kit": "npm:@nuxt/devtools-kit@^3.4.2",
     "@nuxt/kit": "npm:@nuxt/kit@^4.6.0",
     "defu": "npm:defu@^6.1.7",
     "mlly": "npm:mlly@^1.8.2",

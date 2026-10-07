@@ -9,6 +9,6 @@ export default defineConfig({
      * The development socket, pinned to a port in `nuxt.config.ts` so that
      * tooling can find it while `nuxt dev` is running.
      */
-    url: 'postgres://postgres@127.0.0.1:5433/postgres',
+    url: 'postgres://postgres@127.0.0.1:5455/postgres',
   },
 })

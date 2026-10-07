@@ -1,4 +1,4 @@
-import type { ModuleRuntimeConfig } from './types'
+import type { ModuleHooks, ModuleRuntimeConfig } from './types'
 
 /**
  * Types the module's runtime config for the module's *own* sources; consumers
@@ -15,5 +15,13 @@ import type { ModuleRuntimeConfig } from './types'
 declare module 'nuxt/schema' {
   interface RuntimeConfig {
     pglite: ModuleRuntimeConfig['pglite']
+  }
+}
+
+// The module's own `nuxt.callHook()`s, typed like the runtime config above.
+declare module '@nuxt/schema' {
+  interface NuxtHooks {
+    'pglite:devtools:actions': ModuleHooks['pglite:devtools:actions']
+    'pglite:devtools:prompt': ModuleHooks['pglite:devtools:prompt']
   }
 }

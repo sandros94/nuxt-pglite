@@ -1,11 +1,32 @@
 import { createResolver, defineNuxtModule } from '@nuxt/kit'
 import type { NuxtModule } from '@nuxt/schema'
+import defu from 'defu'
 
 import { setupClient } from './client'
 import { setupServer } from './server'
-import type { ModuleOptions } from './types'
+import type { ModuleOptions, ResolvedModuleOptions } from './types'
 
 export type * from './types'
+
+const DEFAULTS: ResolvedModuleOptions = {
+  client: {
+    enabled: false,
+    config: 'app/pglite.config',
+    options: {},
+    eager: false,
+  },
+  server: {
+    enabled: true,
+    config: 'server/pglite.config',
+    options: {},
+    eager: false,
+    socket: false,
+  },
+  devtools: {
+    enabled: true,
+    actions: [],
+  },
+}
 
 // Annotated explicitly: without a bare `@nuxt/schema` reference in the type
 // graph the emitted declaration cannot name `NuxtModule` portably (TS2883).
@@ -18,23 +39,11 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       nitro: '>=2.13.0',
     },
   },
-  defaults: {
-    client: {
-      enabled: false,
-      config: 'app/pglite.config',
-      options: {},
-      eager: false,
-    },
-    server: {
-      enabled: true,
-      config: 'server/pglite.config',
-      options: {},
-      eager: false,
-      socket: false,
-    },
-  },
-  async setup(options, nuxt) {
+  defaults: DEFAULTS,
+  async setup(userOptions, nuxt) {
     const resolver = createResolver(import.meta.url)
+    // Nuxt merges `defaults` in (`defu`), but types the merge shallowly.
+    const options: ResolvedModuleOptions = defu(userOptions, DEFAULTS)
 
     const runtimeDir = resolver.resolve('./runtime')
     nuxt.options.build.transpile.push(runtimeDir)
@@ -49,8 +58,14 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       }
     }
 
-    await setupServer(options.server, nuxt, resolver)
+    const server = await setupServer(options.server, nuxt, resolver)
     await setupClient(options.client, nuxt, resolver)
+
+    // Imported on demand: a build never loads the tooling or its dependencies.
+    if (nuxt.options.dev) {
+      const { setupDev } = await import('./dev')
+      await setupDev(options, nuxt, resolver, server)
+    }
   },
 })
 

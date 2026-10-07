@@ -3,5 +3,5 @@
  * reachable as `#pglite/server`.
  */
 export { definePGliteConfig as definePGliteServerConfig } from '../core'
-export type { PGliteConfig, PGliteInstanceFor } from '../core'
+export type { PGliteConfig, PGliteInstanceFor, PGliteServerAction } from '../core'
 export { pglite, usePGlite } from './utils/pglite'
