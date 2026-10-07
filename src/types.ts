@@ -41,7 +41,7 @@ export interface ModuleOptions {
     enabled: boolean
     /**
      * Path of the config file, relative to the root directory, extension
-     * optional. It exports `definePGliteConfig({ ... })` and is where
+     * optional. It exports `definePGliteServerConfig({ ... })` and is where
      * extensions and `init` live. Optional: without it the instance uses the
      * `options` below.
      */

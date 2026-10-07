@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
-import { dirname, isAbsolute, resolve } from 'pathe'
+import { dirname, isAbsolute, relative, resolve } from 'pathe'
 import {
   addNitroPlugin,
   addServerImports,
@@ -17,7 +17,9 @@ import type { Nuxt } from '@nuxt/schema'
 import defu from 'defu'
 import { findDynamicImports, findStaticImports, parseStaticImport } from 'mlly'
 
+import { assertConfigKind, definePGliteConfig, resolveEnvConfig } from './runtime/core'
 import type { PGliteConfig } from './runtime/core'
+import { definePGliteClientConfig } from './runtime/client/config'
 import { createPGliteSocketServer } from './runtime/socket'
 import type { PGliteSocketServer } from './runtime/socket'
 import type { ModuleOptions, SocketOptions } from './types'
@@ -51,6 +53,11 @@ export async function setupServer(
     // The socket's instance lives in this process, so a config change needs a restart.
     nuxt.options.watch.push(configPath)
   }
+  if (configPath && !options.enabled && !options.socket) {
+    logger.warn(
+      `${relative(nuxt.options.rootDir, configPath)} found, but \`pglite.server\` is disabled and has no socket: it is not used.`,
+    )
+  }
 
   // Env-only overrides: empty by default, config keeps precedence unless `NUXT_PGLITE_*` is set.
   nuxt.options.runtimeConfig.pglite = defu(nuxt.options.runtimeConfig.pglite, {
@@ -58,45 +65,34 @@ export async function setupServer(
     dataDir: '',
   })
 
+  // The socket serves PGlite from this process, so it works as a dev-only
+  // database even when the server side (`usePGlite()`, PGlite in the bundle)
+  // is disabled for the build.
   const socket =
     nuxt.options.dev && options.socket
       ? await startSocket(options, nuxt, defaults, configPath, logger)
       : undefined
 
+  addServerTypes(configPath, resolver)
+  if (!options.enabled) {
+    return
+  }
+
   addServerTemplate({
     filename: CONFIG_ID,
     getContents: () =>
       [
+        `import { assertConfigKind, resolveEnvConfig } from ${JSON.stringify(resolver.resolve('./runtime/core'))}`,
         configPath
           ? `import userConfig from ${JSON.stringify(configPath)}`
           : `const userConfig = {}`,
         `export const defaults = ${JSON.stringify(defaults)}`,
         `export const socketDataDir = ${JSON.stringify(socket?.dataDir)}`,
         `export const eager = ${String(options.eager)}`,
-        `export default { ...defaults, ...userConfig }`,
+        `assertConfigKind(userConfig, 'server', ${JSON.stringify(options.config)})`,
+        `export default resolveEnvConfig({ ...defaults, ...userConfig }, ${JSON.stringify(nuxtEnv(nuxt))})`,
       ].join('\n'),
   })
-  addTypeTemplate(
-    {
-      filename: 'types/nuxt-pglite-server.d.ts',
-      getContents: () =>
-        [
-          `declare module '${CONFIG_ID}' {`,
-          `  import type { PGliteConfig } from '${resolver.resolve('./runtime/core')}'`,
-          `  import type { SerializablePGliteOptions } from '${resolver.resolve('./types')}'`,
-          `  export const defaults: SerializablePGliteOptions`,
-          `  export const socketDataDir: string | undefined`,
-          `  export const eager: boolean`,
-          configPath
-            ? `  const config: typeof import('${configPath}').default`
-            : `  const config: PGliteConfig`,
-          `  export default config`,
-          `}`,
-        ].join('\n'),
-    },
-    { nitro: true, nuxt: true, node: false },
-  )
-
   // PGlite loads its wasm and the extension bundles from files next to its
   // code, which a bundled copy no longer has. Nitro 2 keeps dependencies
   // external; Nitro 3 bundles them unless traced as whole packages.
@@ -109,7 +105,7 @@ export async function setupServer(
 
   addServerImports([
     { name: 'usePGlite', from: resolver.resolve('./runtime/server') },
-    { name: 'definePGliteConfig', from: resolver.resolve('./runtime/server') },
+    { name: 'definePGliteServerConfig', from: resolver.resolve('./runtime/server') },
   ])
 
   addNitroPlugin({
@@ -118,23 +114,57 @@ export async function setupServer(
   })
 }
 
+function nuxtEnv(nuxt: Nuxt) {
+  return { dev: nuxt.options.dev, test: nuxt.options.test }
+}
+
+// Declared even while disabled, so the module's own sources type-check.
+function addServerTypes(configPath: string | undefined, resolver: Resolver) {
+  addTypeTemplate(
+    {
+      filename: 'types/nuxt-pglite-server.d.ts',
+      getContents: () =>
+        [
+          `declare module '${CONFIG_ID}' {`,
+          `  import type { PGliteConfig, resolveEnvConfig } from '${resolver.resolve('./runtime/core')}'`,
+          `  import type { SerializablePGliteOptions } from '${resolver.resolve('./types')}'`,
+          `  export const defaults: SerializablePGliteOptions`,
+          `  export const socketDataDir: string | undefined`,
+          `  export const eager: boolean`,
+          configPath
+            ? `  const config: ReturnType<typeof resolveEnvConfig<typeof import('${configPath}').default>>`
+            : `  const config: PGliteConfig`,
+          `  export default config`,
+          `}`,
+        ].join('\n'),
+    },
+    { nitro: true, nuxt: true, node: false },
+  )
+}
+
 /**
- * Loads the config file outside the server bundle, where `definePGliteConfig`
+ * Loads the config file outside the server bundle, where `definePGliteServerConfig`
  * is not auto-imported: it is provided as a global for the duration of the
  * import, so that a file written for the server works here unchanged.
  */
 async function loadConfig(configPath: string): Promise<PGliteConfig> {
+  // Both helpers, so that a file using the wrong one reaches the kind check
+  // and gets a pointer instead of a ReferenceError.
+  const helpers: Record<string, unknown> = {
+    definePGliteServerConfig: definePGliteConfig,
+    definePGliteClientConfig,
+  }
   const global: Record<string, unknown> = globalThis
-  const provided = !('definePGliteConfig' in global)
-  if (provided) {
-    global.definePGliteConfig = (config: PGliteConfig) => config
+  const provided = Object.keys(helpers).filter((name) => !(name in global))
+  for (const name of provided) {
+    global[name] = helpers[name]
   }
   try {
     const { default: config } = await importModule<{ default: PGliteConfig }>(configPath)
-    return config
+    return assertConfigKind(config, 'server', configPath)
   } finally {
-    if (provided) {
-      delete global.definePGliteConfig
+    for (const name of provided) {
+      delete global[name]
     }
   }
 }
@@ -193,7 +223,7 @@ async function startSocket(
   const { env = 'DATABASE_URL', ...serverOptions } = socketOptions
 
   const userConfig = configPath ? await loadConfig(configPath) : {}
-  const config: PGliteConfig = { ...defaults, ...userConfig }
+  const config: PGliteConfig = resolveEnvConfig({ ...defaults, ...userConfig }, nuxtEnv(nuxt))
 
   const { PGlite } = await importModule<typeof import('@electric-sql/pglite')>(
     '@electric-sql/pglite',

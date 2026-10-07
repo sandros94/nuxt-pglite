@@ -5,6 +5,9 @@ import type {
   PGliteOptions,
 } from '@electric-sql/pglite'
 
+import { markConfig } from './kind'
+import type { EnvOverrides } from './kind'
+
 /**
  * PGlite options plus the hook that prepares a freshly created instance. The
  * extensions generic is preserved so that they show up on the instance type,
@@ -33,7 +36,7 @@ export type PGliteInstanceFor<O extends PGliteOptions> = PGlite &
  * instance without an explicit generic.
  */
 export function definePGliteConfig<E extends Extensions = {}>(
-  config: PGliteConfig<E>,
-): PGliteConfig<E> {
-  return config
+  config: PGliteConfig<E> & EnvOverrides<PGliteConfig<E>>,
+): PGliteConfig<E> & EnvOverrides<PGliteConfig<E>> {
+  return markConfig(config, 'server')
 }

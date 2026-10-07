@@ -41,10 +41,14 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     for (const entry of ['core', 'socket', 'server', 'client']) {
       nuxt.options.alias[`#pglite/${entry}`] = resolver.resolve(runtimeDir, entry)
     }
-
-    if (options.server.enabled) {
-      await setupServer(options.server, nuxt, resolver)
+    // A disabled side keeps its alias, pointing at a stub with the same names.
+    for (const side of ['server', 'client'] as const) {
+      if (!options[side].enabled) {
+        nuxt.options.alias[`#pglite/${side}`] = resolver.resolve(runtimeDir, side, 'disabled')
+      }
     }
+
+    await setupServer(options.server, nuxt, resolver)
     await setupClient(options.client, nuxt, resolver)
   },
 })

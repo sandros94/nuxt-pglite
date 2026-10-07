@@ -1,6 +1,9 @@
 import type { Extensions, PGliteInterfaceExtensions } from '@electric-sql/pglite'
 import type { PGliteWorker, PGliteWorkerOptions } from '@electric-sql/pglite/worker'
 
+import { markConfig } from '../core/kind'
+import type { EnvOverrides } from '../core/kind'
+
 /**
  * Options for the in-browser instance, which runs inside a Web Worker shared
  * between tabs. Postgres extensions load in the worker; extensions that add a
@@ -26,7 +29,7 @@ export type PGliteClientInstanceFor<C extends PGliteClientConfig<Extensions, Ext
   PGliteWorker & PGliteInterfaceExtensions<C['clientExtensions']>
 
 export function definePGliteClientConfig<E extends Extensions = {}, C extends Extensions = {}>(
-  config: PGliteClientConfig<E, C>,
-): PGliteClientConfig<E, C> {
-  return config
+  config: PGliteClientConfig<E, C> & EnvOverrides<PGliteClientConfig<E, C>>,
+): PGliteClientConfig<E, C> & EnvOverrides<PGliteClientConfig<E, C>> {
+  return markConfig(config, 'client')
 }

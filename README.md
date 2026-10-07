@@ -57,7 +57,7 @@ Extensions, a data directory decided at runtime and setup code go in `server/pgl
 import { citext } from '@electric-sql/pglite/contrib/citext'
 import { vector } from '@electric-sql/pglite-pgvector'
 
-export default definePGliteConfig({
+export default definePGliteServerConfig({
   extensions: { citext, vector },
   init: async (pg) => {
     await pg.exec('CREATE EXTENSION IF NOT EXISTS vector')
@@ -68,7 +68,7 @@ export default definePGliteConfig({
 })
 ```
 
-`definePGliteConfig` is auto-imported; import it from `nuxt-pglite/core` if the file is also loaded outside Nuxt. The accepted options are PGlite's own ([reference](https://pglite.dev/docs/api#options)) plus `init` and `dispose`. A relative `dataDir` here is resolved from the working directory at runtime, like Nitro's storage; prefer `nuxt.config.ts` for a project-relative path.
+`definePGliteServerConfig` is auto-imported (it is `definePGliteConfig` from `nuxt-pglite/core` under its Nuxt name; import that one if the file is also loaded outside Nuxt). Using the client helper here, or this one in the client file, fails at load with a pointer. The accepted options are PGlite's own ([reference](https://pglite.dev/docs/api#options)) plus `init` and `dispose`. A relative `dataDir` here is resolved from the working directory at runtime, like Nitro's storage; prefer `nuxt.config.ts` for a project-relative path.
 
 On Nuxt 5 (Nitro 3) dependencies are bundled, which would separate PGlite and its extension packages from the wasm and extension bundles they load at runtime. The module keeps them whole by tracing PGlite and every package the config file imports (relative imports included). A package reached some other way goes in Nitro's own list, `nitro.traceDeps`.
 
@@ -90,7 +90,33 @@ export default defineNuxtConfig({
 })
 ```
 
-Use `enabled: import.meta.dev` or an environment check to keep PGlite out of a production build that uses a real database.
+`$development`, `$production` and `$test` keys work in the config file as they do in `nuxt.config.ts`:
+
+```ts
+export default definePGliteServerConfig({
+  extensions: { vector },
+  $development: { dataDir: 'memory://' },
+})
+```
+
+A config file that exists while its side is disabled (and, for the server, has no socket) logs a warning, since it is not used.
+
+### PGlite in development only
+
+The socket runs in the Nuxt process, so it works with the server side disabled. Nothing from PGlite ends up in the build, and the same driver code reads the real `DATABASE_URL` in production:
+
+```ts
+export default defineNuxtConfig({
+  pglite: {
+    server: {
+      enabled: false, // no `usePGlite()`, no PGlite in the output
+      socket: { port: 5433 }, // but a Postgres URL while `nuxt dev` runs
+    },
+  },
+})
+```
+
+With the server side disabled, `#pglite/server` still resolves to a stub whose `usePGlite()` rejects with a pointer, so a leftover import fails clearly rather than at bundling.
 
 ## Development socket
 
@@ -223,15 +249,6 @@ pnpm test:e2e
 # Build the module
 pnpm build
 ```
-
-</details>
-
-<details>
-  <summary>Releasing</summary>
-
-Releases are automated by [uppt](https://github.com/danielroe/uppt): pushing to `main` opens a draft `release/vX.Y.Z` PR built from the conventional commits since the last tag. Merging it tags the commit, publishes the GitHub Release, then packs and stages the tarball to npm through OIDC trusted publishing — which waits for your 2FA approval in the `npm` environment.
-
-Nothing to run locally; just write conventional commits.
 
 </details>
 

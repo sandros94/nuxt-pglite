@@ -1,4 +1,5 @@
-import { addImports, addPlugin, addTemplate, addTypeTemplate, findPath } from '@nuxt/kit'
+import { relative } from 'pathe'
+import { addImports, addPlugin, addTemplate, addTypeTemplate, findPath, useLogger } from '@nuxt/kit'
 import type { Resolver } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 
@@ -11,9 +12,12 @@ export async function setupClient(
   nuxt: Nuxt,
   resolver: Resolver,
 ) {
-  const configPath = options.enabled
-    ? ((await findPath(options.config, { cwd: nuxt.options.rootDir })) ?? undefined)
-    : undefined
+  const configPath = (await findPath(options.config, { cwd: nuxt.options.rootDir })) ?? undefined
+  if (configPath && !options.enabled) {
+    useLogger('nuxt-pglite').warn(
+      `${relative(nuxt.options.rootDir, configPath)} found, but \`pglite.client\` is disabled: it is not used.`,
+    )
+  }
 
   // Declared even while disabled, so the module's own sources type-check.
   addTypeTemplate(
@@ -23,8 +27,9 @@ export async function setupClient(
         [
           `declare module '${CONFIG_ID}' {`,
           `  import type { PGliteClientConfig } from '${resolver.resolve('./runtime/client/config')}'`,
-          configPath
-            ? `  const config: typeof import('${configPath}').default`
+          `  import type { resolveEnvConfig } from '${resolver.resolve('./runtime/core')}'`,
+          configPath && options.enabled
+            ? `  const config: ReturnType<typeof resolveEnvConfig<typeof import('${configPath}').default>>`
             : `  const config: PGliteClientConfig`,
           `  export default config`,
           `}`,
@@ -52,7 +57,11 @@ export async function setupClient(
   const shim = addTemplate({
     filename: 'pglite/client-config-shim.mjs',
     write: true,
-    getContents: () => `globalThis.definePGliteClientConfig ??= (config) => config\n`,
+    getContents: () =>
+      [
+        `import { definePGliteClientConfig } from ${JSON.stringify(resolver.resolve('./runtime/client/config'))}`,
+        `globalThis.definePGliteClientConfig ??= definePGliteClientConfig`,
+      ].join('\n'),
   })
   const template = addTemplate({
     filename: 'pglite/client-config.mjs',
@@ -60,11 +69,13 @@ export async function setupClient(
     getContents: () =>
       [
         `import ${JSON.stringify(shim.dst)}`,
+        `import { assertConfigKind, resolveEnvConfig } from ${JSON.stringify(resolver.resolve('./runtime/core'))}`,
         configPath
           ? `import userConfig from ${JSON.stringify(configPath)}`
           : `const userConfig = {}`,
         `export const defaults = ${JSON.stringify(options.options)}`,
-        `export default { ...defaults, ...userConfig }`,
+        `assertConfigKind(userConfig, 'client', ${JSON.stringify(options.config)})`,
+        `export default resolveEnvConfig({ ...defaults, ...userConfig }, ${JSON.stringify({ dev: nuxt.options.dev, test: nuxt.options.test })})`,
       ].join('\n'),
   })
   nuxt.options.alias[CONFIG_ID] = template.dst
