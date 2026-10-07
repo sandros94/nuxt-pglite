@@ -143,3 +143,57 @@ describe('createPGliteProvider with { create, init }', () => {
     expect(pg.closed).toBe(true)
   })
 })
+
+describe('createPGliteProvider edge cases', () => {
+  it('fails fast when use() is called from init() through an init scope', async () => {
+    let active = false
+    const provider = createPGliteProvider({
+      create: async () => fakeInstance(),
+      init: async () => {
+        await provider.use()
+      },
+      initScope: {
+        run: async <R>(fn: () => Promise<R>) => {
+          active = true
+          try {
+            return await fn()
+          } finally {
+            active = false
+          }
+        },
+        active: () => active,
+      },
+    })
+
+    await expect(provider.use()).rejects.toThrow('still initialising')
+  })
+
+  it('closes the instance even when dispose throws', async () => {
+    const provider = createPGliteProvider({
+      create: async () => fakeInstance(),
+      dispose: async () => {
+        throw new Error('dispose failed')
+      },
+    })
+    const pg = await provider.use()
+
+    await expect(provider.close()).rejects.toThrow('dispose failed')
+    expect(pg.closed).toBe(true)
+    expect(provider.instance).toBeUndefined()
+  })
+
+  it('does not hand out an instance that is being closed', async () => {
+    const provider = createPGliteProvider({
+      create: async () => fakeInstance(),
+      dispose: () => new Promise((resolve) => setTimeout(resolve, 30)),
+    })
+    const first = await provider.use()
+
+    const closing = provider.close()
+    const second = await provider.use()
+    await closing
+
+    expect(second).not.toBe(first)
+    expect(second.closed).toBe(false)
+  })
+})

@@ -7,7 +7,7 @@ export { definePGliteConfig as definePGliteServerConfig } from '../core'
 export type { PGliteConfig, PGliteInstanceFor } from '../core'
 
 const message =
-  '[nuxt-pglite] `pglite.server` is disabled: `usePGlite()` has no instance. Enable it, or connect to `useRuntimeConfig().pglite.url` while the development socket runs.'
+  '[nuxt-pglite] `pglite.server` is disabled: `usePGlite()` has no instance. Enable it, or connect to `useRuntimeConfig().pglite.url` if you are using the development socket.'
 
 export function usePGlite(): Promise<never> {
   return Promise.reject(new Error(message))

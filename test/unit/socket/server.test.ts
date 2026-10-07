@@ -394,6 +394,23 @@ describe('createPGliteSocketServer', () => {
     await once(raw.socket, 'close')
   })
 
+  describe('session state', () => {
+    it('resets settings, temp tables and advisory locks when a client disconnects', async () => {
+      const first = await connectClient(server)
+      await first.query("SET application_name = 'first'")
+      await first.query('CREATE TEMP TABLE scratch (id int)')
+      expect((await first.query('SELECT pg_try_advisory_lock(42) AS ok')).rows[0]?.ok).toBe(true)
+      await first.end()
+
+      const second = await connectClient(server)
+      expect((await second.query('SHOW application_name')).rows[0]?.application_name).not.toBe(
+        'first',
+      )
+      expect((await second.query("SELECT to_regclass('scratch') AS t")).rows[0]?.t).toBeNull()
+      expect((await second.query('SELECT pg_try_advisory_lock(42) AS ok')).rows[0]?.ok).toBe(true)
+    })
+  })
+
   describe('LISTEN/NOTIFY', () => {
     it('delivers notifications across connections', async () => {
       const listener = await connectClient(server)
@@ -409,6 +426,56 @@ describe('createPGliteSocketServer', () => {
           { channel: 'across_channel', payload: 'hello' },
           { channel: 'across_channel', payload: 'world' },
         ]),
+      )
+    })
+
+    it('delivers only to the clients that LISTEN on the channel', async () => {
+      const listener = await connectClient(server)
+      const bystander = await connectClient(server)
+      const notifier = await connectClient(server)
+      const heard = collect(listener)
+      const overheard = collect(bystander)
+
+      await listener.query('LISTEN scoped_channel')
+      await bystander.query('LISTEN other_channel')
+      await notifier.query("NOTIFY scoped_channel, 'private'")
+      await notifier.query("NOTIFY other_channel, 'theirs'")
+
+      await vi.waitFor(() =>
+        expect(overheard).toEqual([{ channel: 'other_channel', payload: 'theirs' }]),
+      )
+      expect(heard).toEqual([{ channel: 'scoped_channel', payload: 'private' }])
+    })
+
+    it('keeps delivering to a listener when another client UNLISTENs the channel', async () => {
+      const keeper = await connectClient(server)
+      const leaver = await connectClient(server)
+      const notifier = await connectClient(server)
+      const received = collect(keeper)
+
+      await keeper.query('LISTEN kept_channel')
+      await leaver.query('LISTEN kept_channel')
+      await leaver.query('UNLISTEN kept_channel')
+      await notifier.query("NOTIFY kept_channel, 'still here'")
+
+      await vi.waitFor(() =>
+        expect(received).toEqual([{ channel: 'kept_channel', payload: 'still here' }]),
+      )
+    })
+
+    it('keeps delivering to a listener after another client disconnects', async () => {
+      const keeper = await connectClient(server)
+      const leaver = await connectClient(server)
+      const notifier = await connectClient(server)
+      const received = collect(keeper)
+
+      await keeper.query('LISTEN survivor_channel')
+      await leaver.query('LISTEN survivor_channel')
+      await leaver.end()
+      await notifier.query("NOTIFY survivor_channel, 'after leave'")
+
+      await vi.waitFor(() =>
+        expect(received).toEqual([{ channel: 'survivor_channel', payload: 'after leave' }]),
       )
     })
 

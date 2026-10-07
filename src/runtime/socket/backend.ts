@@ -3,12 +3,23 @@ import { clearTimeout, setTimeout } from 'node:timers'
 import type { PGlite } from '@electric-sql/pglite'
 
 import {
+  COPY_FROM_STDIN_REJECTION,
+  FrontendMessage,
   buildCloseStatement,
+  buildNotificationResponse,
   buildQuery,
   buildSync,
   concatBytes,
+  hasErrorResponse,
+  isCopyFromStdin,
   lastReadyForQueryStatus,
+  parseListenStatement,
+  quoteIdentifier,
+  quoteLiteral,
+  readQueryText,
+  replaceQueryText,
   stripNotifications,
+  type ListenStatement,
   type TransactionStatus,
 } from './protocol'
 
@@ -18,6 +29,12 @@ export interface BackendOptions {
    * before `onIdleInTransactionTimeout` fires. 0 disables the timeout.
    */
   idleInTransactionTimeout?: number
+
+  /**
+   * Session settings as the in-process code left them, restored after a
+   * client's `RESET ALL` so that disconnecting clients do not wipe them.
+   */
+  sessionSettings?: { name: string; setting: string }[]
 }
 
 export interface SessionHandlers {
@@ -39,6 +56,11 @@ export interface SessionHandlers {
    * expected to release itself, which rolls the transaction back.
    */
   onIdleInTransactionTimeout: () => void
+
+  /**
+   * Receives a NotificationResponse for a channel the session has LISTENed to.
+   */
+  onNotification: (message: Uint8Array) => void
 }
 
 export interface Session {
@@ -48,15 +70,29 @@ export interface Session {
   send(messages: Uint8Array[]): void
 
   /**
-   * Ends the session: discards its queued messages, rolls back the transaction
-   * it left open and closes the given prepared statements.
+   * Ends the session: rolls back the transaction it left open and closes the
+   * given prepared statements. With `drain`, the messages queued before are
+   * still run first (a client's own Terminate); otherwise they are discarded.
    */
-  release(statements: Iterable<string>): void
+  release(statements: Iterable<string>, options?: { drain?: boolean }): void
 }
 
 interface SessionState {
   handlers: SessionHandlers
   messages: Uint8Array[]
+
+  /** Channels the client has LISTENed to. */
+  channels: Set<string>
+
+  /**
+   * LISTEN / UNLISTEN parsed from an extended-protocol pipeline, applied once
+   * the pipeline has synced without error: only then has the backend run them.
+   */
+  pendingListens: ListenStatement[]
+  pipelineErrored: boolean
+
+  /** Released by the client's own Terminate: queued messages still run. */
+  draining?: boolean
 
   /**
    * ReadyForQuery status of the last response, undefined when it had none
@@ -103,13 +139,32 @@ export class Backend {
   // Armed while the owner sits idle inside a transaction.
   #idleTimer?: ReturnType<typeof setTimeout>
 
-  constructor(db: PGlite, { idleInTransactionTimeout = 0 }: BackendOptions = {}) {
+  // Sessions per channel: PGlite has one LISTEN set, so notifications are
+  // routed here to the clients that asked for them.
+  #listeners = new Map<string, Set<SessionState>>()
+
+  #sessionSettings: { name: string; setting: string }[]
+
+  // Ends the hold on PGlite's locks while a client owns the backend.
+  #endSpan?: () => void
+
+  constructor(
+    db: PGlite,
+    { idleInTransactionTimeout = 0, sessionSettings = [] }: BackendOptions = {},
+  ) {
     this.#db = db
     this.#idleInTransactionTimeout = idleInTransactionTimeout
+    this.#sessionSettings = sessionSettings
   }
 
   openSession(handlers: SessionHandlers): Session {
-    const state: SessionState = { handlers, messages: [] }
+    const state: SessionState = {
+      handlers,
+      messages: [],
+      channels: new Set(),
+      pendingListens: [],
+      pipelineErrored: false,
+    }
 
     return {
       send: (messages) => {
@@ -130,12 +185,15 @@ export class Backend {
 
       // Still honoured after `close`, so that the sessions torn down with the
       // server leave no transaction or prepared statement behind.
-      release: (statements) => {
+      release: (statements, { drain = false } = {}) => {
         if (state.released) {
           return
         }
 
-        state.messages.length = 0
+        state.draining = drain && state.messages.length > 0
+        if (!state.draining) {
+          state.messages.length = 0
+        }
         state.released = [...statements]
         state.releasedAsOwner = this.#owner === state
 
@@ -143,14 +201,8 @@ export class Backend {
           this.#clearIdleTimer()
         }
 
-        // A waiting session without prepared statements has nothing left to do
-        // on the backend.
-        if (!state.releasedAsOwner && state.released.length === 0) {
-          this.#waiting.delete(state)
-
-          return
-        }
-
+        // Every session gets a cleanup turn: its session state (settings,
+        // temp tables, locks, LISTENs) lives in the shared backend.
         if (!state.releasedAsOwner) {
           this.#waiting.add(state)
         }
@@ -160,12 +212,28 @@ export class Backend {
     }
   }
 
+  /**
+   * Delivers a notification to the sessions listening on its channel.
+   */
+  notify(channel: string, payload: string): void {
+    const sessions = this.#listeners.get(channel)
+    if (!sessions) {
+      return
+    }
+
+    const message = buildNotificationResponse(channel, payload)
+    for (const session of sessions) {
+      session.handlers.onNotification(message)
+    }
+  }
+
   // Stops forwarding messages and waits for the message being executed and for
   // the cleanup of the sessions released so far, so that the PGlite instance
   // is left without a client's transaction open.
   async close(): Promise<void> {
     this.#closed = true
     this.#clearIdleTimer()
+    this.#releaseLocks()
 
     for (const session of this.#waiting) {
       if (!session.released) {
@@ -196,9 +264,11 @@ export class Backend {
 
         this.#owner = owner
 
-        if (owner.released) {
+        if (owner.released && !(owner.draining && owner.messages.length > 0)) {
+          await this.#holdLocks()
           await this.#cleanUp(owner, owner.released)
           this.#owner = undefined
+          this.#releaseLocks()
 
           continue
         }
@@ -216,6 +286,7 @@ export class Backend {
         }
 
         try {
+          await this.#holdLocks()
           await this.#forward(owner)
         } catch (error) {
           owner.handlers.onError(error)
@@ -240,31 +311,89 @@ export class Backend {
     return next.value
   }
 
+  // PGlite's in-process API takes a transaction lock for `transaction()` and a
+  // query lock per statement. Both are held for as long as a client owns the
+  // backend, so that the app's own statements cannot land inside the client's
+  // transaction or pipeline, and the client's cannot land inside the app's.
+  async #holdLocks(): Promise<void> {
+    if (this.#endSpan) {
+      return
+    }
+
+    await new Promise<void>((held) => {
+      // Underscored in PGlite but part of its public base class: the same two
+      // locks `transaction()` and `query()` take, in the same order.
+      // oxlint-disable-next-line no-underscore-dangle
+      void this.#db._runExclusiveTransaction(() =>
+        // oxlint-disable-next-line no-underscore-dangle
+        this.#db._runExclusiveQuery(
+          () =>
+            new Promise<void>((end) => {
+              this.#endSpan = end
+              held()
+            }),
+        ),
+      )
+    })
+  }
+
+  #releaseLocks(): void {
+    this.#endSpan?.()
+    this.#endSpan = undefined
+  }
+
   // Forwards the owner's queued messages one at a time until the queue runs
-  // dry or the backend is idle. PGlite's own lock is held for the whole turn so
-  // that its in-process API (`query`, `exec`, `transaction`) cannot slip in
-  // between the messages. It can still run while the owner waits for more
-  // data, as it does not go through this scheduler.
+  // dry or the backend is idle.
   async #forward(owner: SessionState): Promise<void> {
-    await this.#db.runExclusive(async () => {
-      while (!this.#closed && !Backend.#isReleased(owner)) {
-        const message = owner.messages.shift()
+    {
+      while (!this.#closed && !Backend.#isDone(owner)) {
+        let message = owner.messages.shift()
 
         if (!message) {
           return
         }
 
-        const response = await this.#db.execProtocolRaw(message)
+        const text = readQueryText(message)
+        if (text !== undefined && isCopyFromStdin(text)) {
+          message = replaceQueryText(message, COPY_FROM_STDIN_REJECTION)
+        }
+        const listen = text === undefined ? undefined : parseListenStatement(text)
+
+        // Durability is settled once per turn, not per message.
+        const response = await this.#db.execProtocolRaw(message, { syncToFs: false })
 
         owner.handlers.onResponse(stripNotifications(response))
         owner.status = lastReadyForQueryStatus(response)
+
+        const errored = hasErrorResponse(response)
+        if (listen) {
+          if (message[0] === FrontendMessage.Query) {
+            if (!errored) {
+              await this.#trackListen(owner, listen)
+            }
+          } else {
+            owner.pendingListens.push(listen)
+          }
+        }
+        owner.pipelineErrored ||= errored
+        if (owner.status !== undefined) {
+          if (!owner.pipelineErrored) {
+            for (const pending of owner.pendingListens) {
+              await this.#trackListen(owner, pending)
+            }
+          }
+          owner.pendingListens = []
+          owner.pipelineErrored = false
+        }
 
         // `T` and `E` keep ownership (transaction affinity), and so does a
         // response without ReadyForQuery (pipeline not yet synced, COPY in
         // progress). A session released meanwhile keeps ownership so that
         // `#pump` runs its cleanup next.
         if (owner.status === 'I' && !Backend.#isReleased(owner)) {
+          await this.#db.syncToFs()
           this.#owner = undefined
+          this.#releaseLocks()
 
           if (owner.messages.length > 0) {
             this.#waiting.add(owner)
@@ -273,7 +402,7 @@ export class Backend {
           return
         }
       }
-    })
+    }
   }
 
   // `release` can run while a turn awaits the backend. Read through a call,
@@ -283,17 +412,18 @@ export class Backend {
     return session.released !== undefined
   }
 
-  // Like Postgres' `idle_in_transaction_session_timeout`, only an owner that
-  // has received ReadyForQuery 'T' or 'E' counts as idle: mid-pipeline the
-  // backend is still waiting for the rest of the pipeline. An armed timer is
+  // Released and not draining: nothing more of the client's is to be run.
+  static #isDone(session: SessionState): boolean {
+    return session.released !== undefined && !session.draining
+  }
+
+  // Like Postgres' `idle_in_transaction_session_timeout`, for an owner inside
+  // a transaction ('T' / 'E') and also for one that stopped mid-pipeline (no
+  // ReadyForQuery yet): either holds every other client. An armed timer is
   // left running, as the idle period it measures has not ended: the timer is
   // cleared whenever the owner sends or is released.
   #armIdleTimer(owner: SessionState): void {
-    if (
-      this.#idleInTransactionTimeout <= 0 ||
-      this.#idleTimer !== undefined ||
-      (owner.status !== 'T' && owner.status !== 'E')
-    ) {
+    if (this.#idleInTransactionTimeout <= 0 || this.#idleTimer !== undefined) {
       return
     }
 
@@ -311,19 +441,85 @@ export class Backend {
     this.#idleTimer = undefined
   }
 
-  async #cleanUp(session: SessionState, statements: string[]): Promise<void> {
-    try {
-      await this.#db.runExclusive(async () => {
-        if (session.releasedAsOwner && this.#db.isInTransaction()) {
-          await this.#db.execProtocolRaw(buildQuery('ROLLBACK'))
-        }
+  // Applies a LISTEN / UNLISTEN the client just ran to the routing table and
+  // keeps PGlite's own LISTEN set equal to the union of every client's: an
+  // UNLISTEN by one client must not silence the others.
+  async #trackListen(
+    session: SessionState,
+    { kind, channel }: { kind: 'listen' | 'unlisten'; channel: string },
+  ) {
+    if (kind === 'listen') {
+      session.channels.add(channel)
+      this.#listeners.set(channel, (this.#listeners.get(channel) ?? new Set()).add(session))
 
-        if (statements.length > 0) {
-          await this.#db.execProtocolRaw(
-            concatBytes(...statements.map(buildCloseStatement), buildSync()),
-          )
-        }
+      return
+    }
+
+    const dropped = channel === '*' ? [...session.channels] : [channel]
+    for (const name of dropped) {
+      this.#unsubscribe(session, name)
+    }
+
+    const stillListened =
+      channel === '*'
+        ? [...this.#listeners.keys()]
+        : dropped.filter((name) => this.#listeners.has(name))
+    for (const name of stillListened) {
+      await this.#db.execProtocolRaw(buildQuery(`LISTEN ${quoteIdentifier(name)}`), {
+        syncToFs: false,
       })
+    }
+  }
+
+  #unsubscribe(session: SessionState, channel: string): void {
+    session.channels.delete(channel)
+
+    const sessions = this.#listeners.get(channel)
+    sessions?.delete(session)
+    if (sessions?.size === 0) {
+      this.#listeners.delete(channel)
+    }
+  }
+
+  async #cleanUp(session: SessionState, statements: string[]): Promise<void> {
+    const channels = [...session.channels]
+    for (const channel of channels) {
+      this.#unsubscribe(session, channel)
+    }
+
+    const raw = (message: Uint8Array) => this.#db.execProtocolRaw(message, { syncToFs: false })
+
+    try {
+      if (session.releasedAsOwner) {
+        // A client gone mid-pipeline leaves the backend skipping messages
+        // until a Sync; only then does a ROLLBACK get through.
+        await raw(buildSync())
+        if (this.#db.isInTransaction()) {
+          await raw(buildQuery('ROLLBACK'))
+        }
+      }
+
+      if (statements.length > 0) {
+        await raw(concatBytes(...statements.map(buildCloseStatement), buildSync()))
+      }
+
+      // Session state a real server would drop with the connection. Not
+      // DISCARD ALL: that would also deallocate the other clients' statements.
+      // The settings the in-process code had set are put back afterwards.
+      const reset = [
+        ...channels
+          .filter((channel) => !this.#listeners.has(channel))
+          .map((channel) => `UNLISTEN ${quoteIdentifier(channel)}`),
+        'RESET ALL',
+        ...this.#sessionSettings.map(
+          ({ name, setting }) =>
+            `SELECT set_config(${quoteLiteral(name)}, ${quoteLiteral(setting)}, false)`,
+        ),
+        'SELECT pg_advisory_unlock_all()',
+        'DISCARD TEMP',
+      ]
+      await raw(buildQuery(reset.join('; ')))
+      await this.#db.syncToFs()
     } catch (error) {
       session.handlers.onError(error)
     }

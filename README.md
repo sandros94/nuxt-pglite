@@ -155,7 +155,9 @@ export default defineConfig({
 
 Options: `host`, `port`, `path` (a directory for a Unix socket), `env`, `maxConnections`, `idleInTransactionTimeout`.
 
-PGlite allows one instance per data directory, so `usePGlite()` in your routes refuses the directory the socket serves; connect through the URL instead, or give the server instance another `dataDir`. Tested with `pg`, postgres.js, `psql` and `drizzle-kit push`; one client owns the database at a time for the length of a transaction or pipeline, others queue.
+PGlite allows one instance per data directory, so `usePGlite()` in your routes refuses the directory the socket serves; connect through the URL instead, or give the server instance another `dataDir`. Tested with `pg`, postgres.js, `psql` and `drizzle-kit push`, on Node, Bun and Deno. One client owns the database at a time for the length of a transaction or pipeline, others queue; the process's own `db.query()` / `db.transaction()` calls queue the same way, so neither side's statements land inside the other's transaction. An owner that stays idle inside a transaction or pipeline past `idleInTransactionTimeout` is disconnected. Notifications reach the clients that ran `LISTEN` on the channel, and a client's settings, temp tables, advisory locks and subscriptions are dropped when it disconnects, as a real server would; the settings the process set before the server started are kept.
+
+Known differences from a real server, inherent to one shared session: `COPY … FROM STDIN` is refused (`0A000`, PGlite cannot run it); `LISTEN`/`UNLISTEN` and SQL-level `PREPARE` / `EXECUTE` / `DEALLOCATE` are recognised as single statements, the way drivers send them, and `LISTEN` takes effect regardless of the transaction it ran in; temp tables and advisory locks taken by the process itself are released when any client disconnects.
 
 ## Client
 

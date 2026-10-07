@@ -23,6 +23,8 @@ export const BackendMessage = {
 
 export const PROTOCOL_VERSION_3_0 = 196608
 
+const MAX_MESSAGE_LENGTH = 0x3fffffff
+
 const SSL_REQUEST_CODE = 80877103
 const GSSENC_REQUEST_CODE = 80877104
 const CANCEL_REQUEST_CODE = 80877102
@@ -158,7 +160,8 @@ export function splitMessages(buffer: Uint8Array): { messages: Uint8Array[]; res
   while (buffer.length - offset >= 5) {
     const length = readInt32(buffer, offset + 1)
 
-    if (length < 4) {
+    // Postgres caps a message at 1 GiB; beyond that the length is garbage.
+    if (length < 4 || length > MAX_MESSAGE_LENGTH) {
       throw new ProtocolError(
         `Invalid length ${String(length)} for message type 0x${readUint8(buffer, offset).toString(16)}.`,
       )
@@ -210,6 +213,127 @@ export function lastReadyForQueryStatus(response: Uint8Array): TransactionStatus
   return status
 }
 
+// Whether the response carries an ErrorResponse, i.e. the statement failed.
+export function hasErrorResponse(response: Uint8Array): boolean {
+  for (const { type } of backendMessages(response)) {
+    if (type === BackendMessage.ErrorResponse) {
+      return true
+    }
+  }
+
+  return false
+}
+
+// The SQL of a Query message, or of a Parse message (after the statement name).
+export function readQueryText(message: Uint8Array): string | undefined {
+  let start: number
+
+  switch (message[0]) {
+    case FrontendMessage.Query:
+      start = 5
+      break
+    case FrontendMessage.Parse: {
+      const nameEnd = message.indexOf(0, 5)
+      if (nameEnd === -1) {
+        return undefined
+      }
+      start = nameEnd + 1
+      break
+    }
+    default:
+      return undefined
+  }
+
+  const end = message.indexOf(0, start)
+
+  return end === -1 ? undefined : new TextDecoder().decode(message.subarray(start, end))
+}
+
+// Replaces the SQL of a Query or Parse message, keeping everything else.
+export function replaceQueryText(message: Uint8Array, sql: string): Uint8Array {
+  const start = message[0] === FrontendMessage.Query ? 5 : message.indexOf(0, 5) + 1
+  const end = message.indexOf(0, start)
+
+  return buildMessage(
+    readUint8(message, 0),
+    message.subarray(5, start),
+    textEncoder.encode(sql),
+    message.subarray(end),
+  )
+}
+
+// PGlite has no COPY-in: forwarding one spins its wasm backend forever and
+// takes the whole process with it.
+const COPY_FROM_STDIN = /^\s*COPY\b[\s\S]*\bFROM\s+STDIN\b/iu
+
+export function isCopyFromStdin(sql: string): boolean {
+  return COPY_FROM_STDIN.test(sql)
+}
+
+// Raised in PGlite's place, so that the error and the transaction state it
+// leaves behind are the backend's own.
+export const COPY_FROM_STDIN_REJECTION =
+  "DO $$ BEGIN RAISE EXCEPTION 'COPY FROM STDIN is not supported by PGlite' USING ERRCODE = '0A000'; END $$"
+
+const SQL_STATEMENT_NAME =
+  /^(\s*(?:PREPARE|EXECUTE|DEALLOCATE(?:\s+PREPARE)?)\s+)("(?:[^"]|"")+"|[\p{L}_][\p{L}\p{N}_$]*)/iu
+
+// `PREPARE` / `EXECUTE` / `DEALLOCATE` share the prepared-statement namespace
+// with the protocol-level ones, so their names get the same prefix. Returns
+// the prefixed name when one was rewritten, `'*'` for `DEALLOCATE ALL`.
+export function rewriteSqlStatementName(
+  sql: string,
+  prefix: string,
+): { sql: string; name?: string } {
+  const match = SQL_STATEMENT_NAME.exec(sql)
+  if (!match) {
+    return { sql }
+  }
+
+  const [, head = '', identifier = ''] = match
+  if (/^DEALLOCATE/iu.test(head.trim()) && identifier.toLowerCase() === 'all') {
+    return { sql, name: '*' }
+  }
+
+  const quoted = identifier.startsWith('"')
+  const bare = quoted ? identifier.slice(1, -1).replaceAll('""', '"') : identifier.toLowerCase()
+  const name = `${prefix}${bare}`
+
+  return { sql: `${head}${quoteIdentifier(name)}${sql.slice(match[0].length)}`, name }
+}
+
+export interface ListenStatement {
+  kind: 'listen' | 'unlisten'
+  /** The channel, lower-cased unless quoted; `*` for `UNLISTEN *`. */
+  channel: string
+}
+
+// Recognises a single LISTEN / UNLISTEN statement, the way drivers send it.
+// Multi-statement strings and statements built inside functions are not seen.
+export function parseListenStatement(sql: string): ListenStatement | undefined {
+  const match =
+    /^\s*(LISTEN|UNLISTEN)\s+("(?:[^"]|"")+"|[\p{L}_][\p{L}\p{N}_$]*|\*)\s*;?\s*$/iu.exec(sql)
+  if (!match) {
+    return undefined
+  }
+
+  const keyword = match[1] ?? ''
+  const identifier = match[2] ?? ''
+  const channel = identifier.startsWith('"')
+    ? identifier.slice(1, -1).replaceAll('""', '"')
+    : identifier.toLowerCase()
+
+  return { kind: keyword.toLowerCase() === 'listen' ? 'listen' : 'unlisten', channel }
+}
+
+export function quoteIdentifier(name: string): string {
+  return `"${name.replaceAll('"', '""')}"`
+}
+
+export function quoteLiteral(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`
+}
+
 // Removes the NotificationResponse messages, which are broadcast separately.
 export function stripNotifications(response: Uint8Array): Uint8Array {
   const kept: Uint8Array[] = []
@@ -246,6 +370,18 @@ function statementNameOffset(message: Uint8Array): number | undefined {
   }
 }
 
+const MAX_IDENTIFIER_LENGTH = 63
+
+// FNV-1a over the bytes, as 16 hex digits.
+function digest(bytes: Uint8Array): string {
+  let hash = 0xcbf29ce484222325n
+  for (const byte of bytes) {
+    hash = ((hash ^ BigInt(byte)) * 0x100000001b3n) & 0xffffffffffffffffn
+  }
+
+  return hash.toString(16).padStart(16, '0')
+}
+
 // Prefixes the prepared-statement name in Parse, Bind, Describe ('S') and
 // Close ('S'). Other messages and the unnamed statement (empty name) pass
 // through. `name` is the rewritten name, set only when a rewrite happened.
@@ -265,7 +401,15 @@ export function rewriteStatementName(
     return { message }
   }
 
-  const name = concatBytes(textEncoder.encode(prefix), message.subarray(start, end))
+  // Postgres keys statements on their first 63 bytes, so a long name is
+  // replaced by a digest to keep the prefix from colliding two of them.
+  const original = message.subarray(start, end)
+  const name = concatBytes(
+    textEncoder.encode(prefix),
+    prefix.length + original.length > MAX_IDENTIFIER_LENGTH
+      ? textEncoder.encode(digest(original))
+      : original,
+  )
   const rewritten = buildMessage(
     readUint8(message, 0),
     message.subarray(5, start),

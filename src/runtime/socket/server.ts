@@ -7,11 +7,12 @@ import type { PGlite } from '@electric-sql/pglite'
 import { Backend } from './backend'
 import {
   readServerParameters,
+  readSessionSettings,
   serveConnection,
   type Connection,
   type Termination,
 } from './connection'
-import { broadcastNotifications } from './notifications'
+import { routeNotifications } from './notifications'
 
 export interface PGliteSocketServerOptions {
   /**
@@ -145,8 +146,11 @@ export function createPGliteSocketServer(
   }
 
   const start = async (): Promise<PGliteSocketServer> => {
-    const serverParameters = await readServerParameters(db)
-    const backend = new Backend(db, { idleInTransactionTimeout })
+    const [serverParameters, sessionSettings] = await Promise.all([
+      readServerParameters(db),
+      readSessionSettings(db),
+    ])
+    const backend = new Backend(db, { idleInTransactionTimeout, sessionSettings })
 
     const server = createServer((socket) => {
       const refused = admitted >= maxConnections
@@ -215,7 +219,7 @@ export function createPGliteSocketServer(
         typeof address === 'string'
           ? { path: path ?? address, port: socketPort }
           : { host: address.address, port: address.port },
-      unsubscribe: broadcastNotifications(db, connections),
+      unsubscribe: routeNotifications(db, backend),
     }
 
     return socketServer
@@ -275,7 +279,9 @@ export function createPGliteSocketServer(
     },
 
     listen() {
-      listening ??= start().catch((error: unknown) => {
+      // A close in progress finishes first: starting over its teardown would
+      // hand out a server about to stop.
+      listening ??= (closing ?? Promise.resolve()).then(start).catch((error: unknown) => {
         listening = undefined
 
         throw error

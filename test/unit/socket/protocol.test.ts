@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, it, test } from 'vitest'
 
 import {
   ProtocolError,
@@ -9,7 +9,10 @@ import {
   buildSync,
   concatBytes,
   lastReadyForQueryStatus,
+  parseListenStatement,
+  readQueryText,
   readStartupPacket,
+  rewriteSqlStatementName,
   rewriteStatementName,
   splitMessages,
   stripNotifications,
@@ -228,5 +231,60 @@ describe('backend responses', () => {
       message('A', int32(3), cString('ch'), cString('hi')),
     )
     expect(decoder.decode(notification.subarray(9, 16))).toBe('channel')
+  })
+})
+
+describe('parseListenStatement', () => {
+  it('recognises LISTEN and UNLISTEN with folded or quoted identifiers', () => {
+    expect(parseListenStatement('LISTEN Updates')).toEqual({ kind: 'listen', channel: 'updates' })
+    expect(parseListenStatement('  unlisten "My""Chan" ; ')).toEqual({
+      kind: 'unlisten',
+      channel: 'My"Chan',
+    })
+    expect(parseListenStatement('UNLISTEN *')).toEqual({ kind: 'unlisten', channel: '*' })
+  })
+
+  it('ignores anything else', () => {
+    expect(parseListenStatement('SELECT 1')).toBeUndefined()
+    expect(parseListenStatement('LISTEN a; LISTEN b')).toBeUndefined()
+    expect(parseListenStatement("NOTIFY updates, 'x'")).toBeUndefined()
+  })
+})
+
+describe('readQueryText', () => {
+  it('reads the SQL of Query and Parse messages', () => {
+    expect(readQueryText(buildQuery('LISTEN a'))).toBe('LISTEN a')
+    const parseMessage = concatBytes(
+      new Uint8Array([0x50, 0, 0, 0, 14]),
+      new TextEncoder().encode('s1\0SELECT 1\0'),
+      new Uint8Array([0, 0]),
+    )
+    expect(readQueryText(parseMessage)).toBe('SELECT 1')
+    expect(readQueryText(buildSync())).toBeUndefined()
+  })
+})
+
+describe('rewriteSqlStatementName', () => {
+  it('prefixes PREPARE, EXECUTE and DEALLOCATE names', () => {
+    expect(rewriteSqlStatementName('PREPARE Pick (int) AS SELECT $1', '3_')).toEqual({
+      sql: 'PREPARE "3_pick" (int) AS SELECT $1',
+      name: '3_pick',
+    })
+    expect(rewriteSqlStatementName('execute "Pick"(1)', '3_')).toEqual({
+      sql: 'execute "3_Pick"(1)',
+      name: '3_Pick',
+    })
+    expect(rewriteSqlStatementName('DEALLOCATE PREPARE pick', '3_')).toEqual({
+      sql: 'DEALLOCATE PREPARE "3_pick"',
+      name: '3_pick',
+    })
+  })
+
+  it('flags DEALLOCATE ALL and leaves other statements alone', () => {
+    expect(rewriteSqlStatementName('DEALLOCATE ALL', '3_')).toEqual({
+      sql: 'DEALLOCATE ALL',
+      name: '*',
+    })
+    expect(rewriteSqlStatementName('SELECT 1', '3_')).toEqual({ sql: 'SELECT 1' })
   })
 })

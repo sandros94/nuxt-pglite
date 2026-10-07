@@ -32,6 +32,19 @@ export interface PGliteProviderOptions<T extends Closable> {
 
   /** Runs before an instance is closed through the provider. */
   dispose?: (pg: T) => void | Promise<void>
+
+  /**
+   * Tracks the asynchronous extent of `init`, so that `use()` called from
+   * inside it fails instead of waiting for itself. Needs an async-context
+   * primitive, which is why it is supplied by the runtime (`AsyncLocalStorage`
+   * on the server) rather than built in.
+   */
+  initScope?: InitScope
+}
+
+export interface InitScope {
+  run<R>(fn: () => Promise<R>): Promise<R>
+  active(): boolean
 }
 
 /**
@@ -42,18 +55,21 @@ export interface PGliteProviderOptions<T extends Closable> {
  */
 export function createPGliteProvider<E extends Extensions = {}>(
   config: PGliteConfig<E>,
+  options?: { initScope?: InitScope },
 ): PGliteProvider<PGliteInstanceFor<PGliteConfig<E>>>
 export function createPGliteProvider<T extends Closable>(
   options: PGliteProviderOptions<T>,
 ): PGliteProvider<T>
 export function createPGliteProvider(
   input: PGliteConfig | PGliteProviderOptions<Closable>,
+  options: { initScope?: InitScope } = {},
 ): PGliteProvider<Closable> {
-  return 'create' in input ? createProvider(input) : createProvider(fromConfig(input))
+  return 'create' in input ? createProvider(input) : createProvider(fromConfig(input, options))
 }
 
 function fromConfig<E extends Extensions>(
   config: PGliteConfig<E>,
+  { initScope }: { initScope?: InitScope },
 ): PGliteProviderOptions<PGliteInstanceFor<PGliteConfig<E>>> {
   return {
     create: async () => {
@@ -64,6 +80,7 @@ function fromConfig<E extends Extensions>(
     },
     init: config.init,
     dispose: config.dispose,
+    initScope,
   }
 }
 
@@ -71,14 +88,18 @@ function createProvider<T extends Closable>({
   create,
   init,
   dispose,
+  initScope,
 }: PGliteProviderOptions<T>): PGliteProvider<T> {
   let instance: T | undefined
   let pending: Promise<T> | undefined
+  let closing: Promise<void> | undefined
 
   const open = async (): Promise<T> => {
     const pg = await create()
     try {
-      await init?.(pg)
+      if (init) {
+        await (initScope ? initScope.run(() => Promise.resolve(init(pg))) : init(pg))
+      }
     } catch (error) {
       await pg.close()
       throw error
@@ -87,29 +108,58 @@ function createProvider<T extends Closable>({
     return pg
   }
 
+  // Synchronous up to the creation, so that a close() issued right after
+  // use() sees the creation in flight.
+  const acquire = (): Promise<T> => {
+    if (instance && !instance.closed) {
+      return Promise.resolve(instance)
+    }
+    // A failed creation must not stick: the next use() retries.
+    pending ??= open().finally(() => {
+      pending = undefined
+    })
+    return pending
+  }
+
+  const use = (): Promise<T> => {
+    if (initScope?.active()) {
+      return Promise.reject(
+        new Error(
+          '[nuxt-pglite] The instance is still initialising: inside init(), use the `pg` it receives instead of calling use().',
+        ),
+      )
+    }
+    // A close in progress finishes first, so the caller never gets the
+    // instance being closed.
+    return closing ? closing.then(acquire) : acquire()
+  }
+
+  const close = async (): Promise<void> => {
+    const pg = instance ?? (await pending?.catch(() => undefined))
+    if (!pg || pg.closed) {
+      instance = undefined
+      return
+    }
+    try {
+      await dispose?.(pg)
+    } finally {
+      // The instance goes away whatever dispose did: a failing dispose must
+      // not leave it open and unreachable.
+      instance = undefined
+      await pg.close()
+    }
+  }
+
   return {
     get instance() {
       return instance && !instance.closed ? instance : undefined
     },
-
-    use() {
-      if (instance && !instance.closed) {
-        return Promise.resolve(instance)
-      }
-      // A failed creation must not stick: the next use() retries.
-      pending ??= open().finally(() => {
-        pending = undefined
+    use,
+    close: () => {
+      closing ??= close().finally(() => {
+        closing = undefined
       })
-      return pending
-    },
-
-    async close() {
-      const pg = instance ?? (await pending?.catch(() => undefined))
-      instance = undefined
-      if (pg && !pg.closed) {
-        await dispose?.(pg)
-        await pg.close()
-      }
+      return closing
     },
   }
 }

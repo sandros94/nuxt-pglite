@@ -1,7 +1,7 @@
 import { useRuntimeConfig } from 'nuxt/server'
 
 import { createPGliteProvider } from '../../core'
-import type { PGliteProvider } from '../../core'
+import type { InitScope, PGliteProvider } from '../../core'
 import config, { socketDataDir } from '#pglite/server-config'
 
 type Provider = ReturnType<typeof createProvider>
@@ -16,7 +16,25 @@ function createProvider() {
     )
   }
 
-  return createPGliteProvider(resolved)
+  return createPGliteProvider(resolved, { initScope })
+}
+
+// Lets `usePGlite()` fail fast when called from `init`, where it would
+// otherwise wait for the initialisation it is part of. `node:async_hooks` is
+// loaded when `init` runs and skipped where the runtime lacks it, which only
+// costs that diagnostic.
+let initialising:
+  | { run<R>(store: true, fn: () => Promise<R>): Promise<R>; getStore(): true | undefined }
+  | undefined
+
+const initScope: InitScope = {
+  async run(fn) {
+    initialising ??= await import('node:async_hooks')
+      .then(({ AsyncLocalStorage }) => new AsyncLocalStorage<true>())
+      .catch(() => undefined)
+    return initialising ? initialising.run(true, fn) : fn()
+  },
+  active: () => initialising?.getStore() === true,
 }
 
 let provider: Provider | undefined

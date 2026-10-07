@@ -13,7 +13,11 @@ import {
   buildParameterStatus,
   buildReadyForQuery,
   concatBytes,
+  quoteIdentifier,
+  readQueryText,
   readStartupPacket,
+  replaceQueryText,
+  rewriteSqlStatementName,
   rewriteStatementName,
   splitMessages,
 } from './protocol'
@@ -53,6 +57,18 @@ export interface Termination {
   message: string
 }
 
+// Settings the in-process code changed for the session before the server
+// started (an `init` hook's `SET search_path`, …), to survive client resets.
+export async function readSessionSettings(
+  db: PGlite,
+): Promise<{ name: string; setting: string }[]> {
+  const { rows } = await db.query<{ name: string; setting: string }>(
+    "SELECT name, setting FROM pg_settings WHERE source = 'session'",
+  )
+
+  return rows
+}
+
 export interface ConnectionOptions {
   backend: Backend
 
@@ -77,12 +93,6 @@ export interface ConnectionOptions {
 }
 
 export interface Connection {
-  /**
-   * Writes a backend message that is not the response to one of the client's
-   * own, once the handshake has completed.
-   */
-  notify(message: Uint8Array): void
-
   /**
    * Releases the session on the backend right away and destroys the socket.
    * Resolves once the socket has closed.
@@ -121,10 +131,11 @@ export function serveConnection(
     }
   }
 
-  // Ends the connection at the client's request. The session is released once
-  // the socket has closed, so the messages queued before still run.
+  // Ends the connection at the client's request: the messages queued before
+  // still run, then the session is cleaned up.
   const close = () => {
     phase = 'closed'
+    session?.release(statements, { drain: true })
     socket.end()
   }
 
@@ -152,13 +163,19 @@ export function serveConnection(
       onResponse: write,
       onError(error) {
         onError(error)
-        socket.destroy()
+        // What Postgres reports when the backend dies under a client.
+        terminate({ code: '57P01', message: 'terminating connection because of a backend error' })
       },
       onIdleInTransactionTimeout() {
         terminate({
           code: '25P03',
           message: 'terminating connection due to idle-in-transaction timeout',
         })
+      },
+      onNotification(message) {
+        if (phase === 'ready') {
+          write(message)
+        }
       },
     })
 
@@ -219,6 +236,34 @@ export function serveConnection(
     }
   }
 
+  // SQL-level prepared statements live in the same namespace as the
+  // protocol-level ones. `DEALLOCATE ALL` becomes the client's own statements
+  // only, as it would be on a real server.
+  const rewriteSqlStatements = (message: Uint8Array): Uint8Array => {
+    const text = readQueryText(message)
+    if (text === undefined) {
+      return message
+    }
+
+    const { sql, name } = rewriteSqlStatementName(text, statementPrefix)
+    if (name === undefined) {
+      return message
+    }
+    if (name === '*') {
+      const own = [...statements].map((statement) => `DEALLOCATE ${quoteIdentifier(statement)}`)
+      statements.clear()
+
+      return replaceQueryText(message, own.length > 0 ? own.join('; ') : 'DEALLOCATE ALL')
+    }
+    if (/^\s*PREPARE/iu.test(text)) {
+      statements.add(name)
+    } else if (/^\s*DEALLOCATE/iu.test(text)) {
+      statements.delete(name)
+    }
+
+    return replaceQueryText(message, sql)
+  }
+
   const readMessages = (active: Session) => {
     const { messages, rest } = splitMessages(buffer)
     const forwarded: Uint8Array[] = []
@@ -226,8 +271,11 @@ export function serveConnection(
     buffer = rest
 
     for (const message of messages) {
-      // PGlite keeps its session alive on Terminate, so it is not forwarded.
+      // PGlite keeps its session alive on Terminate, so it is not forwarded;
+      // what came before it is queued first, so it still runs.
       if (message[0] === FrontendMessage.Terminate) {
+        active.send(forwarded)
+        forwarded.length = 0
         close()
 
         break
@@ -243,7 +291,7 @@ export function serveConnection(
         }
       }
 
-      forwarded.push(rewritten.message)
+      forwarded.push(rewriteSqlStatements(rewritten.message))
     }
 
     active.send(forwarded)
@@ -277,12 +325,6 @@ export function serveConnection(
   socket.on('close', release)
 
   return {
-    notify(message) {
-      if (phase === 'ready') {
-        write(message)
-      }
-    },
-
     destroy() {
       release()
       socket.destroy()
