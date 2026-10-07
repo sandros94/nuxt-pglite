@@ -1,0 +1,10 @@
+# The documentation site (`docs/`). Nitro detects Netlify and picks its
+# `netlify` preset, which writes the static files to `dist` and the server
+# routes to `.netlify/functions-internal`.
+[build]
+base = "docs"
+command = "pnpm build"
+publish = "dist"
+
+[build.environment]
+NODE_VERSION = "24"
