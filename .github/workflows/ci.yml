@@ -67,6 +67,42 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+  # The same suite against the Nuxt 5 nightly, so a breaking change upstream
+  # shows up here first. Not a gate: it is allowed to fail.
+  nightly:
+    needs: check
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.17.0
+          cache: 'pnpm'
+
+      - name: Use the Nuxt 5 nightly
+        run: |
+          cat >> pnpm-workspace.yaml <<'EOF'
+
+          overrides:
+            nuxt: npm:nuxt-nightly@5x
+            '@nuxt/kit': npm:@nuxt/kit-nightly@5x
+            '@nuxt/schema': npm:@nuxt/schema-nightly@5x
+          EOF
+          pnpm install --no-frozen-lockfile
+
+      - name: Typecheck code
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
   preview:
     needs: test
     if: github.event_name == 'pull_request' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
