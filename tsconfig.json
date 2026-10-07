@@ -3,6 +3,8 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "*.ts"],
+  // Overriding `include` drops the generated entries, so the app type entry
+  // (module augmentations, virtual modules) is re-added explicitly.
+  "include": ["./.nuxt/nuxt.d.ts", "src/**/*.ts", "test/**/*.ts", "*.ts"],
   "exclude": ["dist", "docs", "node_modules", "playground", "src/runtime/server", "test/fixtures"]
 }

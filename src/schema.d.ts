@@ -1,4 +1,4 @@
-import type { ModulePublicRuntimeConfig, ModuleRuntimeConfig } from './types'
+import type { ModuleRuntimeConfig } from './types'
 
 /**
  * Types the module's runtime config for the module's *own* sources; consumers
@@ -13,9 +13,6 @@ import type { ModulePublicRuntimeConfig, ModuleRuntimeConfig } from './types'
  *   former reaches what `nuxt/server`'s `useRuntimeConfig` returns.
  */
 declare module 'nuxt/schema' {
-  interface PublicRuntimeConfig {
-    pglite: ModulePublicRuntimeConfig['pglite']
-  }
   interface RuntimeConfig {
     pglite: ModuleRuntimeConfig['pglite']
   }

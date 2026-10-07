@@ -1,0 +1,7 @@
+/**
+ * Everything the server side of a Nuxt app gets from the module, also
+ * reachable as `#pglite/server`.
+ */
+export { definePGliteConfig } from '../core'
+export type { PGliteConfig, PGliteInstanceFor } from '../core'
+export { pglite, usePGlite } from './utils/pglite'

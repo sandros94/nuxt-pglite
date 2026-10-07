@@ -1,45 +1,40 @@
-import { createDatabase } from 'db0'
-import _pglite from 'db0/connectors/pglite'
-
-import type { PGlite, PGliteOptions, PGliteServerOptions } from '#pglite-utils'
-import { useNitroApp } from 'nitropack/runtime'
 import { useRuntimeConfig } from 'nuxt/server'
 
-// @ts-ignore Nitro virtual fs
-import { extensions } from '#pglite/server-extensions.js'
+import { createPGliteProvider } from '../../core'
+import type { PGliteProvider } from '../../core'
+import config, { socketDataDir } from '#pglite/server-config'
 
-let pglite: PGlite<PGliteServerOptions> | undefined
-export async function usePGlite() {
-  const nitroHooks = useNitroApp().hooks
-  const options: PGliteServerOptions = {
-    ...useRuntimeConfig().pglite,
-    extensions,
+type Provider = ReturnType<typeof createProvider>
+
+function createProvider() {
+  const { dataDir } = useRuntimeConfig().pglite
+  const resolved = dataDir ? { ...config, dataDir } : config
+
+  if (socketDataDir !== undefined && resolved.dataDir === socketDataDir) {
+    throw new Error(
+      `[nuxt-pglite] The development socket already serves "${socketDataDir}" from the Nuxt process, and PGlite allows one instance per data directory. Connect through the socket URL (\`useRuntimeConfig().pglite.url\`) or give the server instance a different \`dataDir\`.`,
+    )
   }
 
-  if (!pglite || pglite.closed) {
-    await nitroHooks.callHookParallel('pglite:config', options)
-
-    pglite = await createDatabase(_pglite(options)).getInstance()
-
-    await nitroHooks.callHookParallel('pglite:init', pglite)
-  }
-
-  return pglite
+  return createPGliteProvider(resolved)
 }
 
-export type PGliteServerInstance = PGlite<PGliteServerOptions>
+let provider: Provider | undefined
 
-export interface PGliteServerHooks {
-  /**
-   * Called before creating a PGlite instance
-   */
-  'pglite:config': (options: PGliteOptions) => void | Promise<void>
-  /**
-   * Called after creating a PGlite instance
-   */
-  'pglite:init': (pg: PGliteServerInstance) => void | Promise<void>
+/**
+ * Resolved on first use rather than at import: runtime config is not readable
+ * while the server bundle is evaluated, and a misconfiguration should surface
+ * where the instance is asked for, not in every route.
+ */
+export const pglite: PGliteProvider<Awaited<ReturnType<Provider['use']>>> = {
+  use: () => (provider ??= createProvider()).use(),
+  get instance() {
+    return provider?.instance
+  },
+  close: () => provider?.close() ?? Promise.resolve(),
 }
 
-declare module 'nitropack/types' {
-  interface NitroRuntimeHooks extends PGliteServerHooks {}
+/** The server-side PGlite instance, created on first use. */
+export function usePGlite() {
+  return pglite.use()
 }

@@ -9,11 +9,8 @@ export default defineNuxtConfig({
   modules: [PGlite],
 
   pglite: {
-    client: {
-      enabled: false,
-    },
     server: {
-      extensions: ['citext'],
+      options: { dataDir: 'memory://' },
     },
   },
 })
