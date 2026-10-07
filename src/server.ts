@@ -1,4 +1,5 @@
 import { mkdirSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { dirname, isAbsolute, resolve } from 'pathe'
 import {
@@ -8,11 +9,13 @@ import {
   addTypeTemplate,
   findPath,
   importModule,
+  resolvePath,
   useLogger,
 } from '@nuxt/kit'
 import type { Resolver } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 import defu from 'defu'
+import { findDynamicImports, findStaticImports, parseStaticImport } from 'mlly'
 
 import type { PGliteConfig } from './runtime/core'
 import { createPGliteSocketServer } from './runtime/socket'
@@ -94,6 +97,16 @@ export async function setupServer(
     { nitro: true, nuxt: true, node: false },
   )
 
+  // PGlite loads its wasm and the extension bundles from files next to its
+  // code, which a bundled copy no longer has. Nitro 2 keeps dependencies
+  // external; Nitro 3 bundles them unless traced as whole packages.
+  // oxlint-disable-next-line no-underscore-dangle -- Nuxt's own key
+  if (nuxt.options._nitroMajor !== 2) {
+    const nitro: { preset?: string; traceDeps?: (string | RegExp)[] } = nuxt.options.nitro
+    const imported = configPath ? await importedPackages(configPath) : []
+    nitro.traceDeps = [...(nitro.traceDeps ?? []), '@electric-sql/pglite*', ...imported]
+  }
+
   addServerImports([
     { name: 'usePGlite', from: resolver.resolve('./runtime/server') },
     { name: 'definePGliteConfig', from: resolver.resolve('./runtime/server') },
@@ -124,6 +137,40 @@ async function loadConfig(configPath: string): Promise<PGliteConfig> {
       delete global.definePGliteConfig
     }
   }
+}
+
+/**
+ * Packages the config file imports, following its relative imports, so that the
+ * extension packages it loads can be traced into the output. Aliased imports
+ * are left to the bundler, which resolves them itself.
+ */
+async function importedPackages(file: string, seen = new Set<string>()): Promise<string[]> {
+  const resolved = (await resolvePath(file)) || file
+  if (seen.has(resolved)) {
+    return []
+  }
+  seen.add(resolved)
+
+  const source = await readFile(resolved, 'utf8').catch(() => '')
+  const specifiers = [
+    ...findStaticImports(source).map((i) => parseStaticImport(i).specifier),
+    ...findDynamicImports(source)
+      .map((i) => /^["'`]([^"'`]+)["'`]$/.exec(i.expression.trim())?.[1])
+      .filter((specifier) => specifier !== undefined),
+  ]
+
+  const packages: string[] = []
+  for (const specifier of specifiers) {
+    if (specifier.startsWith('.')) {
+      packages.push(...(await importedPackages(resolve(dirname(resolved), specifier), seen)))
+    } else if (!/^[#~@]\/|^[a-z]+:/.test(specifier)) {
+      const name = /^(@[^/]+\/[^/]+|[^/]+)/.exec(specifier)?.[1]
+      if (name && name !== 'nuxt-pglite') {
+        packages.push(name)
+      }
+    }
+  }
+  return [...new Set(packages)]
 }
 
 interface RunningSocket {

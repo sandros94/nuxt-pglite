@@ -70,6 +70,8 @@ export default definePGliteConfig({
 
 `definePGliteConfig` is auto-imported; import it from `nuxt-pglite/core` if the file is also loaded outside Nuxt. The accepted options are PGlite's own ([reference](https://pglite.dev/docs/api#options)) plus `init` and `dispose`. A relative `dataDir` here is resolved from the working directory at runtime, like Nitro's storage; prefer `nuxt.config.ts` for a project-relative path.
 
+On Nuxt 5 (Nitro 3) dependencies are bundled, which would separate PGlite and its extension packages from the wasm and extension bundles they load at runtime. The module keeps them whole by tracing PGlite and every package the config file imports (relative imports included). A package reached some other way goes in Nitro's own list, `nitro.traceDeps`.
+
 The file path is `pglite.server.config` in `nuxt.config.ts`. `usePGlite()` is typed from it, so `pg.live` or any extension namespace is there when configured.
 
 ### Options
