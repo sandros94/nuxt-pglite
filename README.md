@@ -11,192 +11,188 @@ A Nuxt module aimed to simplify the use of [PGlite](https://pglite.dev).
 <!-- - [🏀 Online playground](https://stackblitz.com/github/sandros94/nuxt-pglite?file=playground%2Fapp.vue) -->
 <!-- - [📖 &nbsp;Documentation](https://example.com) -->
 
-> [!WARNING]  
-> No docs are available (although planned), please refer to the [playground code](/playground).
+## What it is
 
-## Features
+Tooling around [PGlite](https://pglite.dev) for Nuxt apps, in three independent pieces you combine as you like:
 
-<!-- Highlight some of the features your module provide here -->
+- **Server**: a lazily created PGlite instance for your Nitro routes (`usePGlite()`), configured in `server/pglite.config.ts`.
+- **Development socket**: the same instance served over the Postgres wire protocol while `nuxt dev` runs, so your `pg`/postgres.js/Drizzle code, `drizzle-kit`, `psql` and friends talk to PGlite through a `DATABASE_URL` exactly as they will talk to Postgres in production.
+- **Client**: an in-browser PGlite in a Web Worker shared between tabs, with live-query composables, configured in `app/pglite.config.ts`. Off by default.
 
-- ⚡️&nbsp;Server-side `usePGlite`, running in your Node, Bun or Deno servers.
-- 🧑‍💻&nbsp;Client-side `usePGlite`, running inside Web Workers.
-- 🪢&nbsp;Client-side `useLiveQuery` and `useLiveIncrementalQuery` to subscribe to live changes.
+Each piece is only in your bundle when it is enabled. `@electric-sql/pglite` is a peer dependency, so you pick its version and import extensions yourself: nothing is wrapped, and the types follow your config.
 
-## Quick Setup
+The framework-agnostic parts ship as their own entries: `nuxt-pglite/core` (config helper + lazy provider) and `nuxt-pglite/socket` (the wire-protocol server), usable from any Node server.
 
-Install the module to your Nuxt application with one command:
+## Quick setup
 
 ```bash
 npx nuxi module add nuxt-pglite
+npm i @electric-sql/pglite
 ```
 
-That's it! You can now use Nuxt PGlite in your Nuxt app ✨
+```ts
+// nuxt.config.ts
+export default defineNuxtConfig({
+  modules: ['nuxt-pglite'],
+})
+```
 
-### Storage
+```ts
+// server/api/hello.get.ts
+export default defineEventHandler(async () => {
+  const pg = await usePGlite()
+  return pg.query('SELECT now()')
+})
+```
 
-You can configure where to store data in your `nuxt.config.ts`. Server-side storage accepts relative baths based on `rootDir` (`~~`):
+Data lives in `.data/pglite` under your project by default. Set `pglite.server.options.dataDir` in `nuxt.config.ts` (relative paths are resolved from the root directory at build time), or `NUXT_PGLITE_DATA_DIR` at runtime.
+
+## Server
+
+### Config file
+
+Extensions, a data directory decided at runtime and setup code go in `server/pglite.config.ts`:
+
+```ts
+import { citext } from '@electric-sql/pglite/contrib/citext'
+import { vector } from '@electric-sql/pglite-pgvector'
+
+export default definePGliteConfig({
+  extensions: { citext, vector },
+  init: async (pg) => {
+    await pg.exec('CREATE EXTENSION IF NOT EXISTS vector')
+  },
+  dispose: async (pg) => {
+    // runs before the instance is closed on server shutdown
+  },
+})
+```
+
+`definePGliteConfig` is auto-imported; import it from `nuxt-pglite/core` if the file is also loaded outside Nuxt. The accepted options are PGlite's own ([reference](https://pglite.dev/docs/api#options)) plus `init` and `dispose`. A relative `dataDir` here is resolved from the working directory at runtime, like Nitro's storage; prefer `nuxt.config.ts` for a project-relative path.
+
+The file path is `pglite.server.config` in `nuxt.config.ts`. `usePGlite()` is typed from it, so `pg.live` or any extension namespace is there when configured.
+
+### Options
 
 ```ts
 export default defineNuxtConfig({
-  modules: ['nuxt-pglite'],
-
   pglite: {
-    client: {
-      options: {
-        dataDir: 'idb://nuxt-pglite',
-      },
-    },
     server: {
-      options: {
-        dataDir: '.data/pglite', // will use `~~/.data/pglite`
-      },
+      enabled: true, // `false` removes PGlite from the server bundle
+      config: 'server/pglite.config',
+      options: { dataDir: '.data/pglite' }, // build-time defaults the config file can override
+      eager: false, // create the instance at startup instead of on first use
+      socket: false, // see below
     },
   },
 })
 ```
 
-For supported filesystem please refer to the [official documentation](https://pglite.dev/docs/filesystems).
+Use `enabled: import.meta.dev` or an environment check to keep PGlite out of a production build that uses a real database.
 
-### Extensions
-
-Extensions are automatically configured with full type support and can be added via `nuxt.config.ts`:
+## Development socket
 
 ```ts
 export default defineNuxtConfig({
-  modules: ['nuxt-pglite'],
-
   pglite: {
-    client: {
-      extensions: ['live', 'electricSync'],
+    server: {
+      socket: { port: 5433 }, // or `true` for a random port
     },
   },
 })
 ```
 
-For a full list of available extensions please refer to [the official docs](https://pglite.dev/extensions). If a new extension is missing feel free to open up a new PR by adding it to [this file](/src/templates.ts#L62-L87). I do plan to support only official and contrib extensions.
+While `nuxt dev` runs, the module creates the configured instance in the Nuxt process and serves it over TCP. The URL is logged, set as `DATABASE_URL` if that variable is unset (`socket.env` renames or disables this), and available as `useRuntimeConfig().pglite.url`.
 
-## Live Queries
+Your database code then needs no PGlite branch at all:
 
-With Live Queries we can subscrive to events happening in the database and reactively update the user interface. This becomes particularly usefuly client-side thanks to Web Workers, allowing us to keep content in sync even when the user opens up multiple tabs.
+```ts
+// server/utils/db.ts
+import { drizzle } from 'drizzle-orm/node-postgres'
 
-To get started simply add `live` extension to your `nuxt.config.ts`:
+export function useDB() {
+  return drizzle(process.env.DATABASE_URL!)
+}
+```
+
+and tooling finds the same database:
+
+```ts
+// drizzle.config.ts
+export default defineConfig({
+  dialect: 'postgresql',
+  dbCredentials: { url: 'postgres://postgres@127.0.0.1:5433/postgres' },
+})
+```
+
+Options: `host`, `port`, `path` (a directory for a Unix socket), `env`, `maxConnections`, `idleInTransactionTimeout`.
+
+PGlite allows one instance per data directory, so `usePGlite()` in your routes refuses the directory the socket serves; connect through the URL instead, or give the server instance another `dataDir`. Tested with `pg`, postgres.js, `psql` and `drizzle-kit push`; one client owns the database at a time for the length of a transaction or pipeline, others queue.
+
+## Client
 
 ```ts
 export default defineNuxtConfig({
-  modules: ['nuxt-pglite'],
-
   pglite: {
     client: {
-      extensions: [
-        // ...
-        'live',
-      ],
+      enabled: true,
+      config: 'app/pglite.config',
+      options: { dataDir: 'idb://my-app' },
+      eager: false,
     },
   },
 })
 ```
 
-This will enable auto-import for `useLiveQuery` and `useLiveIncrementalQuery`. The quick implementation would be:
+```ts
+// app/pglite.config.ts
+import { live } from '@electric-sql/pglite/live'
+import { vector } from '@electric-sql/pglite-pgvector'
+
+export default definePGliteClientConfig({
+  dataDir: 'idb://my-app',
+  extensions: { vector }, // loaded in the worker, next to the database
+  clientExtensions: { live }, // loaded on the main thread, typed on the instance
+  init: async (pg) => {
+    await pg.exec('CREATE TABLE IF NOT EXISTS todos (id serial, title text)')
+  },
+})
+```
+
+The database runs in a Web Worker; tabs share it. Postgres extensions go in `extensions`, extensions that add a JavaScript namespace (`live`, `electricSync`) in `clientExtensions`, which is how PGlite itself splits them.
 
 ```vue
 <script setup lang="ts">
-const maxNumber = ref(100)
-const items = useLiveQuery.sql`
-  SELECT *
-  FROM my_table
-  WHERE number <= ${maxNumber.value}
-  ORDER BY number;
-`
+const pg = await usePGlite()
+const { rows } = useLiveQuery<{ id: number; title: string }>('SELECT * FROM todos ORDER BY id')
+
+async function add(title: string) {
+  await pg.query('INSERT INTO todos (title) VALUES ($1)', [title])
+}
 </script>
 ```
 
-Live queries are currently a custom fork of the upstream implementation, which you can read more [here](https://pglite.dev/docs/framework-hooks/vue#uselivequery).
+`useLiveQuery(query, params?)` and `useLiveIncrementalQuery(query, params, key)` accept strings, refs or getters and re-subscribe when they change; `useLiveQuery.sql` is a tagged-template form. They need `live` in `clientExtensions`. All of these are client-only; call them from `.client.vue` components or behind `<ClientOnly>`.
 
-## Hooks
+Server and client composables share the name `usePGlite`: the auto-import resolves to the right one per context, and `#pglite/server` / `#pglite/client` import either explicitly.
 
-We can use hooks to customize or extend PGlite at runtime. This becomes particularly useful in conjunction with [`RLS`](https://www.postgresql.org/docs/current/ddl-rowsecurity.html) or adding custom extensions server-side.
-
-### RLS
-
-PGlite supports RLS out of the box, but being a single-user/single-connection database it is more frequent to be used only client side. Lets take in example a basic implementation with `nuxt-auth-utils`. We'll need to create a client-only Nuxt plugin `/plugins/rls.client.ts`:
+## Outside Nuxt
 
 ```ts
-export default defineNuxtPlugin((nuxtApp) => {
-  const { user } = useUserSession()
+import { createPGliteProvider, definePGliteConfig } from 'nuxt-pglite/core'
+import { createPGliteSocketServer } from 'nuxt-pglite/socket'
 
-  if (user) {
-    nuxtApp.hook('pglite:config', (options) => {
-      options.username = user.id
-    })
-  }
-})
+const pglite = createPGliteProvider(definePGliteConfig({ dataDir: './data' }))
+const db = await pglite.use()
+
+const server = await createPGliteSocketServer(db, { port: 5433 }).listen()
+console.log(server.url)
+// ...
+await server.close()
+await pglite.close()
 ```
 
-This, in combination with [`Sync`](https://pglite.dev/docs/sync), will make us able to create an offline-first application with the ability for the users to save their data in a centralized postgres instance.
-
-### Customizing extensions
-
-We can also use hooks to pass custom options to extensions like [`Sync`](https://pglite.dev/docs/sync) as well as improve typing for the whole project.
-
-In the following example we are creating a `/server/plugins/extend-pglite.ts` plugin that adds and configure `pgvector` and `Sync`:
-
-```ts
-import { vector } from '@electric-sql/pglite/vector'
-import { electricSync } from '@electric-sql/pglite-sync'
-
-export default defineNitroPlugin((nitro) => {
-  nitro.hooks.hook('pglite:config', (options) => {
-    options.extensions = {
-      vector,
-      electric: electricSync({
-        metadataSchema: 'my-electric',
-      }),
-    }
-  })
-
-  nitro.hooks.hook('pglite:init', async (pg) => {
-    await pg.query('CREATE EXTENSION IF NOT EXISTS vector;')
-  })
-})
-
-// Improve typing for server-side extensions
-declare module '#pglite-utils' {
-  interface PGliteServerExtensions {
-    vector: typeof vector
-    electric: ReturnType<typeof electricSync>
-  }
-}
-```
-
-> [!WARNING]  
-> This is currently the only way to type server-side extensions.
-
-### Hooking Notes
-
-A few things to consider are that:
-
-- we rely on `nuxtApp` hooks for client-side, while `nitroApp` for server-side, hooks available are:
-  - `pglite:config`: provides access to `PGliteOptions` before initializing a new PGlite instance.
-  - `pglite:init`: provides access to the initialized PGlite instance.
-- To improve types when manually adding extensions we use `PGliteClientExtensions` and `PGliteServerExtensions` for client and server respectively.
-
-## ORM support
-
-Any ORM that accept a PGlite or PGliteWorker instances should be supported both server and client side.
-
-### Drizzle
-
-Drizzle integration for server-side is as simple as:
-
-```ts
-import { drizzle } from 'drizzle-orm/pglite'
-import * as schema from '../my-path-to/schema'
-
-export function useDB() {
-  const pg = await usePGlite()
-  return drizzle(pg, { schema })
-}
-```
+Both entries import only `@electric-sql/pglite` and Node built-ins.
 
 ## Contribution
 
