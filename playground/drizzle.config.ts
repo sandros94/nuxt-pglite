@@ -1,5 +1,6 @@
 import { defineConfig } from 'drizzle-kit'
 
+// No `push`/`migrate`: `init` in `server/pglite.config.ts` applies the files in `out`, pushing would bypass them.
 export default defineConfig({
   out: './server/database/migrations',
   schema: './server/database/schema.ts',

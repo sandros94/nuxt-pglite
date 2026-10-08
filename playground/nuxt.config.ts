@@ -1,4 +1,27 @@
+import { fileURLToPath } from 'node:url'
+
 import type { PGliteProcessAction } from 'nuxt-pglite'
+
+const playground = fileURLToPath(new URL('.', import.meta.url))
+
+/** Runs a drizzle-kit command in a DevTools terminal, reaching the socket through its variables. */
+function drizzleKit(id: string, label: string, command: string): PGliteProcessAction {
+  return {
+    id,
+    label,
+    run: ({ env, startSubprocess }) => {
+      startSubprocess(
+        {
+          command: 'pnpm',
+          args: ['exec', 'drizzle-kit', command],
+          cwd: playground,
+          env: { ...process.env, ...env },
+        },
+        { id, name: label },
+      )
+    },
+  }
+}
 
 export default defineNuxtConfig({
   compatibilityDate: 'latest',
@@ -30,6 +53,8 @@ export default defineNuxtConfig({
             return { socketUrl, env }
           },
         } satisfies PGliteProcessAction,
+        drizzleKit('drizzle-generate', 'Generate a migration', 'generate'),
+        drizzleKit('drizzle-studio', 'Open Drizzle Studio', 'studio'),
       ],
     },
   },
