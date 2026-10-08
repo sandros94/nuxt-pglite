@@ -17,13 +17,13 @@ import defu from 'defu'
 import { createJiti } from 'jiti'
 import type { PGlite } from '@electric-sql/pglite'
 
-import { definePGliteConfig } from './runtime/core/config'
 import type { PGliteConfig } from './runtime/core/config'
-import { assertConfigKind, resolveEnvConfig } from './runtime/core/kind'
-import { definePGliteClientConfig } from './runtime/client/config'
+import { resolveEnvConfig } from './runtime/core/kind'
+import { importServerConfig } from './runtime/core/load'
 import { createPGliteSocketServer } from './runtime/socket/server'
 import { resolveSocketEnv } from './runtime/socket/env'
-import { createInstance, resetInstance } from './instance'
+import { createInstance } from './runtime/core/instance'
+import { resetInstance } from './instance'
 import { corePathForTypes, importedPackages, withoutExtension } from './utils/imports'
 import type { PGliteSocketServer } from './runtime/socket/server'
 import type { ServerOptions, SocketOptions } from './types'
@@ -168,36 +168,6 @@ function addServerTypes(configPath: string | undefined, resolver: Resolver) {
   )
 }
 
-/**
- * Loads the config file outside the server bundle, where `definePGliteServerConfig`
- * is not auto-imported: it is provided as a global for the duration of the
- * import, so that a file written for the server works here unchanged.
- */
-async function loadConfig(configPath: string, nuxt: Nuxt): Promise<PGliteConfig> {
-  // Both helpers, so that a file using the wrong one reaches the kind check
-  // and gets a pointer instead of a ReferenceError.
-  const helpers: Record<string, unknown> = {
-    definePGliteServerConfig: definePGliteConfig,
-    definePGliteClientConfig,
-  }
-  const global: Record<string, unknown> = globalThis
-  const provided = Object.keys(helpers).filter((name) => !(name in global))
-  for (const name of provided) {
-    global[name] = helpers[name]
-  }
-  try {
-    // Through jiti rather than a bare import: the app's aliases (`~~`,
-    // `#pglite/*`, …) resolve in the file as they do in the server bundle.
-    const jiti = createJiti(nuxt.options.rootDir, { alias: nuxt.options.alias })
-    const config = await jiti.import<PGliteConfig>(configPath, { default: true })
-    return assertConfigKind(config, 'server', configPath)
-  } finally {
-    for (const name of provided) {
-      delete global[name]
-    }
-  }
-}
-
 /** The built-in `process` action that recreates the socket's instance; registered in `src/dev.ts`. */
 export const RESET_ACTION = { id: 'reset-database', label: 'Reset database' } as const
 
@@ -240,7 +210,12 @@ async function startSocket(
   const socketOptions: SocketOptions = typeof options.socket === 'object' ? options.socket : {}
   const { env, provider, ...serverOptions } = socketOptions
 
-  const userConfig = configPath ? await loadConfig(configPath, nuxt) : {}
+  // Through jiti rather than a bare import: the app's aliases (`~~`,
+  // `#pglite/*`, …) resolve in the file as they do in the server bundle.
+  const jiti = createJiti(nuxt.options.rootDir, { alias: nuxt.options.alias })
+  const userConfig = configPath
+    ? await importServerConfig(configPath, (path) => jiti.import(path))
+    : {}
   const config: PGliteConfig = resolveEnvConfig({ ...defaults, ...userConfig }, nuxtEnv(nuxt))
 
   // Rendered by the `nuxt dev` UI when it runs, logged otherwise; the error

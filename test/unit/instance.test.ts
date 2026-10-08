@@ -5,7 +5,8 @@ import { join } from 'node:path'
 import { PGlite } from '@electric-sql/pglite'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createInstance, resetInstance } from '../../src/instance'
+import { resetInstance } from '../../src/instance'
+import { createInstance } from '../../src/runtime/core/instance'
 
 // Each instance on disk takes a second or more to create.
 describe('createInstance and resetInstance', () => {

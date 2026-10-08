@@ -21,7 +21,7 @@ Tooling around [PGlite](https://pglite.dev) for Nuxt apps, in three independent 
 
 Each piece is only in your bundle when it is enabled. `@electric-sql/pglite` is a peer dependency, so you pick its version and import extensions yourself: nothing is wrapped, and the types follow your config.
 
-The framework-agnostic parts ship as their own entries: `nuxt-pglite/core` (config helper + lazy provider), `nuxt-pglite/socket` (the wire-protocol server) and `nuxt-pglite/migrations` (an SQL migrations applier), usable from any Node server.
+The framework-agnostic parts ship as their own entries: `nuxt-pglite/core` (config helper + lazy provider), `nuxt-pglite/socket` (the wire-protocol server), `nuxt-pglite/migrations` (an SQL migrations applier) and `nuxt-pglite/testing` (test databases from your config, with vitest helpers in `nuxt-pglite/testing/vitest`), usable from any Node server or test runner.
 
 ## Quick setup
 
@@ -221,6 +221,107 @@ try {
 }
 ```
 
+## Testing
+
+`nuxt-pglite/testing` gives a test suite (vitest, `@nuxt/test-utils`, any runner) a PGlite database built from the app's own server config, `init` included, so tests run against the schema the app sees, without touching its data:
+
+```ts
+import { createTestDatabase } from 'nuxt-pglite/testing'
+
+const db = await createTestDatabase({ config: 'server/pglite.config' })
+await db.pg.query('INSERT INTO todos (title) VALUES ($1)', ['first'])
+// ...
+await db.close()
+```
+
+Options: `config` (the config object, or the path of its file), `dataDir` (in memory by default, whatever the config says), `socket`, `exportEnv`. `$test` overrides in the config apply. `close()` runs the config's `dispose` and closes everything the database opened.
+
+### Isolation
+
+`db.fork()` returns a fresh in-memory copy of the database's current state, with the same extensions and without running `init` again: seed once, then fork per test so that each starts from the same data and none sees another's writes. A fork closes independently; closing its parent closes the forks still open.
+
+```ts
+let db: TestDatabase
+let test: TestDatabase
+
+beforeAll(async () => {
+  db = await createTestDatabase({ config: 'server/pglite.config' })
+  await db.pg.exec(seed)
+})
+beforeEach(async () => {
+  test = await db.fork()
+})
+afterEach(() => test.close())
+afterAll(() => db.close())
+```
+
+### Through the socket
+
+Code that connects through a URL, rather than receiving `pg`, gets the database over the Postgres wire protocol with `socket`: `true` for a free loopback port, or the module's `socket` options (`port`, `env`, `provider`, ...). `db.url` is the connection URL and `db.env` the variables the socket resolves, as in `nuxt dev`: `DATABASE_URL` by default, `NETLIFY_DB_URL` and `NETLIFY_DB_DRIVER` with `provider: 'netlify'`. They are set on `process.env` while the database is open, only those still unset, unless `exportEnv: false`, and unset on `close()`. A fork has its own socket, on a free port, but exports nothing: pass its `env` on.
+
+```ts
+const db = await createTestDatabase({ config: 'server/pglite.config', socket: true })
+// process.env.DATABASE_URL === db.url
+```
+
+### Config files
+
+`createTestDatabase` loads a config path with `loadPGliteConfig(path)`, also exported: relative to `process.cwd()`, extension optional, with `definePGliteServerConfig` provided as a global while the file is imported (so a file written for the auto-import works unchanged) and `$test` applied. The file is imported through jiti, so TypeScript works on any runtime; `alias` (name to absolute path, as `nuxt.options.alias`) resolves the imports the app's aliases would.
+
+### vitest
+
+`nuxt-pglite/testing/vitest` turns this into a `globalSetup` file: one database for the whole run, created before the workers start, served over the socket and closed once the run ends. The workers inherit its variables, and it is provided as `pglite`:
+
+```ts
+// test/pglite.setup.ts
+import { definePGliteGlobalSetup } from 'nuxt-pglite/testing/vitest'
+
+export default definePGliteGlobalSetup({
+  config: 'server/pglite.config',
+  socket: { provider: 'netlify' }, // or `true` (the default) for DATABASE_URL
+})
+```
+
+```ts
+// vitest.config.ts
+export default defineConfig({
+  test: { globalSetup: ['test/pglite.setup.ts'] },
+})
+```
+
+```ts
+// in a test file
+import { inject } from 'vitest'
+
+const { url, env } = inject('pglite')
+```
+
+The workers share one database, so tests that write to it should run in sequence or clean up after themselves; for isolation per test, use `createTestDatabase` and `fork()` in the test files instead.
+
+### `@nuxt/test-utils`
+
+An end-to-end suite boots the built app in its own process: create the database before `setup()` and hand it the variables, so that the app's code reading `DATABASE_URL` reaches it:
+
+```ts
+import { afterAll, describe, expect, it } from 'vitest'
+import { $fetch, setup } from '@nuxt/test-utils/e2e'
+import { createTestDatabase } from 'nuxt-pglite/testing'
+
+describe('todos', async () => {
+  const db = await createTestDatabase({ config: 'server/pglite.config', socket: true })
+  afterAll(() => db.close())
+
+  await setup({ env: db.env })
+
+  it('lists the todos', async () => {
+    await db.pg.query("INSERT INTO todos (title) VALUES ('first')")
+    expect(await $fetch('/api/todos')).toEqual([{ id: 1, title: 'first' }])
+  })
+})
+```
+
+`afterAll` is registered before `setup()`'s own, so it runs after the app is stopped. This fits an app whose database code reads the URL, e.g. with the server side disabled and the development socket on ([PGlite in development only](#pglite-in-development-only)); `usePGlite()` in the built app creates its own instance instead.
+
 ## Client
 
 ```ts
@@ -383,7 +484,7 @@ await pglite.close()
 
 `server.refuse(reason, { hint })` disconnects the clients and refuses new ones (`57P03`, `PGlite is not ready: <reason>`) while the instance is unavailable; `server.serve(db)` serves an instance from then on, behind the same URL. `createPGliteSocketServer(null)` starts refusing until the first `serve()`.
 
-Both entries import only `@electric-sql/pglite` and Node built-ins; `nuxt-pglite/migrations` only Node built-ins.
+These entries and `nuxt-pglite/testing` import only `@electric-sql/pglite` and Node built-ins; `nuxt-pglite/migrations` only Node built-ins.
 
 ## Contribution
 

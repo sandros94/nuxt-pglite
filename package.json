@@ -41,13 +41,21 @@
     "./migrations": {
       "types": "./dist/runtime/migrations/index.d.ts",
       "import": "./dist/runtime/migrations/index.js"
+    },
+    "./testing": {
+      "types": "./dist/runtime/testing/index.d.ts",
+      "import": "./dist/runtime/testing/index.js"
+    },
+    "./testing/vitest": {
+      "types": "./dist/runtime/testing/vitest.d.ts",
+      "import": "./dist/runtime/testing/vitest.js"
     }
   },
   "scripts": {
     "build": "nuxt-module-build build",
     "dev": "nuxt dev playground",
     "dev:build": "nuxt build playground",
-    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground && nuxt prepare test/fixtures/basic",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground && nuxt prepare test/fixtures/basic && nuxt prepare test/fixtures/testing",
     "lint": "oxlint . && oxfmt --check .",
     "fmt": "oxlint --fix . && oxfmt .",
     "prepack": "pnpm build",

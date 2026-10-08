@@ -319,6 +319,21 @@ importers:
         specifier: 'catalog:'
         version: 3.5.43(typescript@6.0.3)
 
+  test/fixtures/testing:
+    dependencies:
+      '@electric-sql/pglite':
+        specifier: npm:@electric-sql/pglite@^0.5.8
+        version: 0.5.8
+      nuxt:
+        specifier: 'catalog:'
+        version: 4.6.0(706e4d9cfa579f6ca7cf4cbf24ee88c2)
+      pg:
+        specifier: ^8.23.1
+        version: 8.23.1
+      vue:
+        specifier: 'catalog:'
+        version: 3.5.43(typescript@6.0.3)
+
 packages:
 
   '@babel/code-frame@7.29.7':

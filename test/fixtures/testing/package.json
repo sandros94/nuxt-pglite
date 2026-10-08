@@ -1,0 +1,11 @@
+{
+  "name": "testing",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@electric-sql/pglite": "npm:@electric-sql/pglite@^0.5.8",
+    "nuxt": "catalog:",
+    "pg": "^8.23.1",
+    "vue": "catalog:"
+  }
+}
