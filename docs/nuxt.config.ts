@@ -37,6 +37,11 @@ export default defineNuxtConfig({
     preference: 'system',
   },
 
+  ui: {
+    prose: true,
+    content: true,
+  },
+
   site: {
     // Placeholder until the production domain is settled; `NUXT_SITE_URL` overrides it.
     url: 'https://nuxt-pglite.s94.dev',
