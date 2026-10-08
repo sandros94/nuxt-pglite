@@ -15,7 +15,8 @@ describe('e2e: module against the basic fixture', async () => {
     // `.nuxt/tsconfig.server.json` with paths into its temporary build
     // directory, breaking type-aware linting once that directory is removed.
     // Spread so that Nitro 3, which has no such option, still type-checks.
-    nuxtConfig: { nitro: { typescript: { generateTsConfig: false } } },
+    // oxlint-disable-next-line unicorn/no-useless-spread
+    nuxtConfig: { nitro: { typescript: { ...{ generateTsConfig: false } } } },
   })
 
   it('renders the index page', async () => {
