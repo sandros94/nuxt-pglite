@@ -232,16 +232,18 @@ An action is a named operation you run from the tab: seeding, a reset, a migrati
 import { readFile } from 'node:fs/promises'
 
 export default definePGliteServerConfig({
-  actions: [
-    {
-      id: 'seed',
-      label: 'Seed the database',
-      description: 'Runs server/database/seed.sql',
-      run: async ({ pg }) => {
-        await pg.exec(await readFile('server/database/seed.sql', 'utf8'))
+  devtools: {
+    actions: [
+      {
+        id: 'seed',
+        label: 'Seed the database',
+        description: 'Runs server/database/seed.sql',
+        run: async ({ pg }) => {
+          await pg.exec(await readFile('server/database/seed.sql', 'utf8'))
+        },
       },
-    },
-  ],
+    ],
+  },
 })
 ```
 
@@ -250,13 +252,15 @@ export default definePGliteServerConfig({
 ```ts
 // app/pglite.config.ts
 export default definePGliteClientConfig({
-  actions: [
-    {
-      id: 'clear',
-      label: 'Clear local todos',
-      run: async ({ pg }) => (await pg.query('DELETE FROM todos')).affectedRows,
-    },
-  ],
+  devtools: {
+    actions: [
+      {
+        id: 'clear',
+        label: 'Clear local todos',
+        run: async ({ pg }) => (await pg.query('DELETE FROM todos')).affectedRows,
+      },
+    ],
+  },
 })
 ```
 
