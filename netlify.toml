@@ -9,3 +9,7 @@ publish = "dist"
 
 [build.environment]
 NODE_VERSION = "24"
+# Nuxt Content hashes every page (`__hash__`, base64url SHA-256) into the
+# prerendered payloads; one starting with `nf_` reads as a Netlify token to the
+# heuristic scanner. Variables marked secret are still scanned for.
+SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
