@@ -171,6 +171,34 @@ socket: {
 
 Each variable is set only when still unset, so a real database configured in the environment wins. Once the dev server is up, a warning names each variable that does not hold the socket's value, set before the module or overwritten after it, e.g. by another module's database emulation, which you then disable. The variables exported are listed when the socket starts, in the DevTools tab, and passed to `socket` actions as `env`.
 
+### Nitro's `useDatabase()`
+
+Nitro's database layer (db0, experimental in Nitro 2 and 3) is not registered by the module: its `pglite` connector opens an instance of its own, which cannot share a data directory with the socket or `usePGlite()`. Point its `postgresql` connector at the socket instead, with the port pinned since `nitro.database` is build-time configuration:
+
+```ts
+// nuxt.config.ts
+export default defineNuxtConfig({
+  modules: ['nuxt-pglite'],
+  pglite: { socket: { port: 5455 } },
+  nitro: {
+    experimental: { database: true },
+    database: { default: { connector: 'postgresql', options: { url: process.env.DATABASE_URL! } } },
+  },
+  $development: {
+    nitro: {
+      database: {
+        default: {
+          connector: 'postgresql',
+          options: { url: 'postgres://postgres@127.0.0.1:5455/postgres' },
+        },
+      },
+    },
+  },
+})
+```
+
+`db0` and `pg` must be installed. On Nuxt 5 the development entry is `nitro.devDatabase`, and `useDatabase` is imported from `nitro/database`.
+
 ### When `init` fails
 
 The instance is created, and `init` (migrations, seeding) run, when `nuxt dev` starts. If either fails, the dev server keeps running: the error is logged, the socket listens at its usual URL with its variables exported, and every client is refused with a FATAL `57P03` (`cannot_connect_now`) error, `PGlite is not ready: <the error>`, whose hint points at the fix. The DevTools tab shows the reason. Restart `nuxt dev` once the cause is fixed (a change to the config file restarts it), or run the `reset-database` action below to start from an empty database.
