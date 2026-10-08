@@ -9,7 +9,7 @@ export default definePGliteClientConfig({
   init: async (pg) => {
     await pg.exec(TODOS_SQL + PLANETS_SQL)
   },
-  actions: [
+  devtoolsActions: [
     {
       id: 'reset',
       label: 'Reset the examples',

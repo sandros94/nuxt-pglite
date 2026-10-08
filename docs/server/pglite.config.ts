@@ -14,7 +14,7 @@ const migrations = fileURLToPath(new URL('../netlify/database/migrations', impor
  */
 export default definePGliteServerConfig({
   init: (pg) => applyMigrations(pg, migrations),
-  actions: [
+  devtoolsActions: [
     {
       id: 'seed-visits',
       label: 'Seed visits',

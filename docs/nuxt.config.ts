@@ -73,7 +73,7 @@ export default defineNuxtConfig({
     server: {
       enabled: false,
     },
-    socket: { port: 5456, provider: 'netlify', actions: [studio] },
+    socket: { port: 5456, provider: 'netlify', devtoolsActions: [studio] },
   },
 
   llms: {
