@@ -1,0 +1,46 @@
+{
+  "name": "nuxt-pglite-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "pnpm --filter nuxt-pglite build && nuxt build",
+    "preview": "nuxt preview",
+    "typecheck": "nuxt typecheck --checker=golar",
+    "db:generate": "drizzle-kit generate",
+    "db:check": "drizzle-kit check",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "npm:@electric-sql/pglite@^0.5.8",
+    "@iconify-json/lucide": "npm:@iconify-json/lucide@^1.2.139",
+    "@iconify-json/simple-icons": "npm:@iconify-json/simple-icons@^1.2.98",
+    "@iconify-json/vscode-icons": "npm:@iconify-json/vscode-icons@^1.2.84",
+    "@neondatabase/serverless": "npm:@neondatabase/serverless@^1.2.0",
+    "@nuxt/content": "npm:@nuxt/content@^3.16.1",
+    "@nuxt/image": "npm:@nuxt/image@^2.1.0",
+    "@nuxt/ui": "npm:@nuxt/ui@^4.11.3",
+    "@nuxtjs/mcp-toolkit": "npm:@nuxtjs/mcp-toolkit@^0.22.0",
+    "@nuxtjs/mdc": "npm:@nuxtjs/mdc@^0.23.2",
+    "@takumi-rs/core": "npm:@takumi-rs/core@^2.14.0",
+    "@vueuse/core": "npm:@vueuse/core@^14.4.0",
+    "drizzle-orm": "npm:drizzle-orm@1.0.0-rc.4",
+    "minimark": "npm:minimark@^0.2.0",
+    "nuxt": "catalog:",
+    "nuxt-llms": "npm:nuxt-llms@0.2.0",
+    "nuxt-og-image": "npm:nuxt-og-image@^6.10.3",
+    "nuxt-pglite": "workspace:*",
+    "pg": "npm:pg@^8.23.1",
+    "tailwindcss": "npm:tailwindcss@^4.3.3",
+    "ufo": "npm:ufo@^1.6.4",
+    "vue": "catalog:",
+    "zod": "npm:zod@^4.6.5"
+  },
+  "devDependencies": {
+    "@golar/vue": "npm:@golar/vue@^0.1.10",
+    "@types/pg": "npm:@types/pg@^8.23.1",
+    "drizzle-kit": "npm:drizzle-kit@1.0.0-rc.4",
+    "golar": "npm:golar@^0.1.10",
+    "typescript": "npm:typescript@^6.0.3"
+  }
+}

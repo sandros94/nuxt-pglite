@@ -1,10 +1,16 @@
 packages:
+  - docs
   - playground
   - test/fixtures/*
 
 catalog:
   nuxt: npm:nuxt@^4.6.0
   vue: npm:vue@^3.5.43
+
+overrides:
+  # docs: 2.2.0's `strong` handler recurses forever under remark-mdc 3.11
+  # (every `**bold**`), which breaks the llms-full.txt prerender.
+  mdast-util-to-markdown: 2.1.2
 
 minimumReleaseAgeStrict: true
 
