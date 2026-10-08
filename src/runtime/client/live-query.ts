@@ -45,6 +45,11 @@ async function useLive(): Promise<LiveNamespace> {
   return pg.live
 }
 
+// A getter is a watch source as is; wrapping it in `ref()` would freeze it.
+function asSource(value: unknown): WatchSource<unknown> {
+  return typeof value === 'function' ? () => value() : ref(value)
+}
+
 function useLiveQueryImpl<T = { [key: string]: unknown }>(
   query: string | WatchSource<string>,
   params?: QueryParams | WatchSource<QueryParams> | WatchSource<unknown>[],
@@ -72,7 +77,11 @@ function useLiveQueryImpl<T = { [key: string]: unknown }>(
   const unsubscribeRef = shallowRef<UnsubscribeFn>()
 
   const querySource = typeof query === 'string' ? ref(query) : query
-  const paramsSources = !params ? [] : Array.isArray(params) ? params.map(ref) : [ref(params)]
+  const paramsSources = !params
+    ? []
+    : Array.isArray(params)
+      ? params.map(asSource)
+      : [asSource(params)]
 
   const keySource = typeof key === 'string' ? ref(key) : key
 
