@@ -14,6 +14,7 @@ import {
 import type { Resolver } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 import defu from 'defu'
+import { createJiti } from 'jiti'
 import type { PGlite } from '@electric-sql/pglite'
 
 import { definePGliteConfig } from './runtime/core/config'
@@ -172,7 +173,7 @@ function addServerTypes(configPath: string | undefined, resolver: Resolver) {
  * is not auto-imported: it is provided as a global for the duration of the
  * import, so that a file written for the server works here unchanged.
  */
-async function loadConfig(configPath: string): Promise<PGliteConfig> {
+async function loadConfig(configPath: string, nuxt: Nuxt): Promise<PGliteConfig> {
   // Both helpers, so that a file using the wrong one reaches the kind check
   // and gets a pointer instead of a ReferenceError.
   const helpers: Record<string, unknown> = {
@@ -185,7 +186,10 @@ async function loadConfig(configPath: string): Promise<PGliteConfig> {
     global[name] = helpers[name]
   }
   try {
-    const { default: config } = await importModule<{ default: PGliteConfig }>(configPath)
+    // Through jiti rather than a bare import: the app's aliases (`~~`,
+    // `#pglite/*`, …) resolve in the file as they do in the server bundle.
+    const jiti = createJiti(nuxt.options.rootDir, { alias: nuxt.options.alias })
+    const config = await jiti.import<PGliteConfig>(configPath, { default: true })
     return assertConfigKind(config, 'server', configPath)
   } finally {
     for (const name of provided) {
@@ -236,7 +240,7 @@ async function startSocket(
   const socketOptions: SocketOptions = typeof options.socket === 'object' ? options.socket : {}
   const { env, provider, ...serverOptions } = socketOptions
 
-  const userConfig = configPath ? await loadConfig(configPath) : {}
+  const userConfig = configPath ? await loadConfig(configPath, nuxt) : {}
   const config: PGliteConfig = resolveEnvConfig({ ...defaults, ...userConfig }, nuxtEnv(nuxt))
 
   // Rendered by the `nuxt dev` UI when it runs, logged otherwise; the error
