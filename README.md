@@ -151,7 +151,7 @@ export default defineConfig({
 })
 ```
 
-It is a development-only option of its own, next to `server` and `client`: it serves `server/pglite.config.ts` whether or not `server.enabled` is. Options: `host`, `port`, `path` (a directory for a Unix socket), `env`, `provider`, `maxConnections`, `idleInTransactionTimeout`, `actions` (see [Actions](#actions)).
+It is a development-only option of its own, next to `server` and `client`: it serves `server/pglite.config.ts` whether or not `server.enabled` is. Options: `host`, `port`, `path` (a directory for a Unix socket), `env`, `provider`, `maxConnections`, `idleInTransactionTimeout`, `devtoolsActions` (see [Actions](#actions)).
 
 ### Environment variables
 
@@ -257,7 +257,7 @@ afterAll(() => db.close())
 
 ### Through the socket
 
-Code that connects through a URL, rather than receiving `pg`, gets the database over the Postgres wire protocol with `socket`: `true` for a free loopback port, or the module's `socket` options but `actions` (`port`, `env`, `provider`, ...). `db.url` is the connection URL and `db.env` the variables the socket resolves, as in `nuxt dev`: `DATABASE_URL` by default, `NETLIFY_DB_URL` and `NETLIFY_DB_DRIVER` with `provider: 'netlify'`. They are set on `process.env` while the database is open, only those still unset, unless `exportEnv: false`, and unset on `close()`. A fork has its own socket, on a free port, but exports nothing: pass its `env` on.
+Code that connects through a URL, rather than receiving `pg`, gets the database over the Postgres wire protocol with `socket`: `true` for a free loopback port, or the module's `socket` options but `devtoolsActions` (`port`, `env`, `provider`, ...). `db.url` is the connection URL and `db.env` the variables the socket resolves, as in `nuxt dev`: `DATABASE_URL` by default, `NETLIFY_DB_URL` and `NETLIFY_DB_DRIVER` with `provider: 'netlify'`. They are set on `process.env` while the database is open, only those still unset, unless `exportEnv: false`, and unset on `close()`. A fork has its own socket, on a free port, but exports nothing: pass its `env` on.
 
 ```ts
 const db = await createTestDatabase({ config: 'server/pglite.config', socket: true })
@@ -398,14 +398,14 @@ export default defineNuxtConfig({
 
 An action is a named operation you run from the tab: seeding, a reset, a migration CLI, a studio. It is defined next to what it needs and runs there; only its `id`, `label` and `description`, and then its result, reach the tab. There are three kinds, by where they run.
 
-**`server`**, in the server config, run against the server instance:
+**`server`**, under `devtoolsActions` in the server config, run against the server instance:
 
 ```ts
 // server/pglite.config.ts
 import { readFile } from 'node:fs/promises'
 
 export default definePGliteServerConfig({
-  actions: [
+  devtoolsActions: [
     {
       id: 'seed',
       label: 'Seed the database',
@@ -418,12 +418,12 @@ export default definePGliteServerConfig({
 })
 ```
 
-**`client`**, in the client config, run in the app's tab against its worker instance:
+**`client`**, under `devtoolsActions` in the client config, run in the app's tab against its worker instance:
 
 ```ts
 // app/pglite.config.ts
 export default definePGliteClientConfig({
-  actions: [
+  devtoolsActions: [
     {
       id: 'clear',
       label: 'Clear local todos',
@@ -433,7 +433,7 @@ export default definePGliteClientConfig({
 })
 ```
 
-**`socket`**, in `pglite.socket.actions`, run in the dev process next to the socket with `{ socketUrl, env, dataDir, startSubprocess, terminal, logger }`: the place for CLIs and tools that reach the database through the socket URL, as any Postgres client would. They exist only while the socket runs. `env` holds the variables the socket exported, to pass on. `startSubprocess` streams the command's output to a terminal in DevTools:
+**`socket`**, in `pglite.socket.devtoolsActions`, run in the dev process next to the socket with `{ socketUrl, env, dataDir, startSubprocess, terminal, logger }`: the place for CLIs and tools that reach the database through the socket URL, as any Postgres client would. They exist only while the socket runs. `env` holds the variables the socket exported, to pass on. `startSubprocess` streams the command's output to a terminal in DevTools:
 
 ```ts
 import type { PGliteSocketAction } from 'nuxt-pglite'
@@ -450,7 +450,7 @@ const migrate: PGliteSocketAction = {
 }
 
 export default defineNuxtConfig({
-  pglite: { socket: { actions: [migrate] } },
+  pglite: { socket: { devtoolsActions: [migrate] } },
 })
 ```
 

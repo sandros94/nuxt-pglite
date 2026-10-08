@@ -217,7 +217,7 @@ async function startSocket(
   logger: ReturnType<typeof useLogger>,
 ): Promise<RunningSocket> {
   // The actions run next to the socket rather than in it (`src/dev.ts`).
-  const { env, provider, actions: _actions, ...serverOptions } = socketOptions
+  const { env, provider, devtoolsActions: _actions, ...serverOptions } = socketOptions
 
   // Through jiti rather than a bare import: the app's aliases (`~~`,
   // `#pglite/*`, …) resolve in the file as they do in the server bundle.

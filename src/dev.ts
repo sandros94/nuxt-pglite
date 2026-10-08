@@ -162,7 +162,7 @@ export async function setupDev(
       const local =
         side === 'socket'
           ? describeActions(socketActions, 'socket')
-          : describeActions(socket?.config.actions, 'server')
+          : describeActions(socket?.config.devtoolsActions, 'server')
       const action = local.find((candidate) => candidate.id === id)
       return action
         ? runner.run(action)
@@ -206,7 +206,7 @@ export function collectSocketActions(
       return socket.dataDir ? `Recreated ${socket.dataDir}` : 'Recreated'
     },
   }
-  return [reset, ...(typeof options === 'object' ? (options.actions ?? []) : [])]
+  return [reset, ...(typeof options === 'object' ? (options.devtoolsActions ?? []) : [])]
 }
 
 interface StateSources {
@@ -312,7 +312,7 @@ function createRunner({ nuxt, socket, target, route, socketActions }: RunnerOpti
         : { ok: false, error: 'The development socket is not running.' }
     }
     if (socket) {
-      return runAction(socket.config.actions, 'server', id, () => ({ pg: socket.use() }))
+      return runAction(socket.config.devtoolsActions, 'server', id, () => ({ pg: socket.use() }))
     }
     if (target === 'nitro') {
       return nitro<PGliteActionOutcome>({ action: id }).catch((error: unknown) => ({
@@ -338,7 +338,7 @@ function createRunner({ nuxt, socket, target, route, socketActions }: RunnerOpti
   async function list(): Promise<PGliteActionInfo[]> {
     let serverActions: PGliteActionInfo[] = []
     if (socket) {
-      serverActions = describeActions(socket.config.actions, 'server')
+      serverActions = describeActions(socket.config.devtoolsActions, 'server')
     } else if (target === 'nitro') {
       serverActions = await nitro<PGliteInstanceInfo>().then(
         (info) => info.actions,

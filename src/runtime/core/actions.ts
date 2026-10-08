@@ -86,7 +86,7 @@ export function describeInstance(
     dataDir?: string
     extensions?: object
     clientExtensions?: object
-    actions?: readonly PGliteAction<never>[]
+    devtoolsActions?: readonly PGliteAction<never>[]
   },
   side: 'server' | 'client',
 ): PGliteInstanceInfo {
@@ -95,7 +95,7 @@ export function describeInstance(
       ...Object.keys(config.extensions ?? {}),
       ...Object.keys(config.clientExtensions ?? {}),
     ],
-    actions: describeActions(config.actions, side),
+    actions: describeActions(config.devtoolsActions, side),
   }
   if (config.dataDir) {
     info.dataDir = config.dataDir

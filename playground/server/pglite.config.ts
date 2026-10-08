@@ -26,7 +26,7 @@ export default definePGliteServerConfig({
       await applyMigrations(pg, migrations)
     },
   },
-  actions: [
+  devtoolsActions: [
     {
       id: 'count',
       label: 'Count test rows',

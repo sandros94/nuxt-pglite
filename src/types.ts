@@ -58,11 +58,11 @@ export interface SocketOptions {
   /** Milliseconds a client may sit idle inside a transaction before it is disconnected; `0` disables it. */
   idleInTransactionTimeout?: number
   /**
-   * Actions listed in Nuxt DevTools and the terminal, run in the dev process
-   * next to the socket. Other modules add theirs through the
+   * Actions listed in Nuxt DevTools and the terminal picker, run in the dev
+   * process next to the socket. Other modules add theirs through the
    * `pglite:devtools:actions` hook.
    */
-  actions?: PGliteSocketAction[]
+  devtoolsActions?: PGliteSocketAction[]
 }
 
 /**

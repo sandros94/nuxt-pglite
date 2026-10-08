@@ -28,10 +28,10 @@ export interface PGliteConfig<E extends Extensions = {}> extends PGliteOptions<E
   dispose?: (pg: PGliteInstanceFor<PGliteConfig<E>>) => unknown
 
   /**
-   * Operations listed in Nuxt DevTools and the terminal, run on demand against
-   * this instance. Development tooling: nothing of it runs in a build.
+   * Actions listed in Nuxt DevTools and the terminal picker, run on demand
+   * against this instance. Development tooling: nothing of it runs in a build.
    */
-  actions?: PGliteServerAction<E>[]
+  devtoolsActions?: PGliteServerAction<E>[]
 }
 
 /** What a server action receives: the instance this config creates. */

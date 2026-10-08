@@ -39,7 +39,7 @@ export default defineNuxtConfig({
       // provider's variables come from its preset, e.g. `provider: 'netlify'`
       // for `NETLIFY_DB_URL` and `NETLIFY_DB_DRIVER=server`.
       env: { DATABASE_URL: (url: string) => url },
-      actions: [
+      devtoolsActions: [
         {
           id: 'socket-url',
           label: 'Print the socket URL',

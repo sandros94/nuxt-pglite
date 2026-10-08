@@ -24,10 +24,10 @@ export interface PGliteClientConfig<
   /** Runs before the instance is closed through its provider. */
   dispose?: (pg: PGliteClientInstanceFor<PGliteClientConfig<E, C>>) => unknown
   /**
-   * Operations listed in Nuxt DevTools, run on demand in the app's tab against
+   * Actions listed in Nuxt DevTools, run on demand in the app's tab against
    * the worker instance. Development tooling: nothing of it runs in a build.
    */
-  actions?: PGliteClientAction<C>[]
+  devtoolsActions?: PGliteClientAction<C>[]
 }
 
 /** What a client action receives: the instance the app's tab holds. */

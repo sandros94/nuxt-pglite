@@ -8,7 +8,7 @@ const noop = () => {}
 
 function fakeSocket() {
   return {
-    config: { actions: [{ id: 'count', label: 'Count', run: noop }] },
+    config: { devtoolsActions: [{ id: 'count', label: 'Count', run: noop }] },
     dataDir: '/tmp/pglite',
     env: { DATABASE_URL: 'postgres://127.0.0.1:5433/postgres' },
     failure: undefined,
@@ -27,7 +27,7 @@ describe('collectSocketActions', () => {
 
   it("puts the module's reset before the configured actions", async () => {
     const socket = fakeSocket()
-    const actions = collectSocketActions(socket, { actions: [studio] })
+    const actions = collectSocketActions(socket, { devtoolsActions: [studio] })
     expect(actions.map(({ id }) => id)).toEqual(['reset-database', 'studio'])
 
     await actions[0]?.run({
@@ -41,7 +41,7 @@ describe('collectSocketActions', () => {
   })
 
   it('has none without the socket, whose URL they need', () => {
-    expect(collectSocketActions(undefined, { actions: [studio] })).toEqual([])
+    expect(collectSocketActions(undefined, { devtoolsActions: [studio] })).toEqual([])
   })
 })
 
@@ -49,7 +49,7 @@ describe('devtoolsState', () => {
   it('lists the socket actions under the socket, with their side', () => {
     const socket = fakeSocket()
     const socketActions = collectSocketActions(socket, {
-      actions: [{ id: 'studio', label: 'Studio', description: 'Opens it', run: noop }],
+      devtoolsActions: [{ id: 'studio', label: 'Studio', description: 'Opens it', run: noop }],
     })
     const state = devtoolsState({ options, target: 'socket', route: '/r', socket, socketActions })
 

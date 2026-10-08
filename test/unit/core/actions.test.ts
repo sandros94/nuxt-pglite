@@ -64,7 +64,7 @@ describe('describeInstance', () => {
           dataDir: 'idb://app',
           extensions: { vector: extension },
           clientExtensions: { live: extension },
-          actions: [{ id: 'clear', label: 'Clear', run: noop }],
+          devtoolsActions: [{ id: 'clear', label: 'Clear', run: noop }],
         },
         'client',
       ),
@@ -201,7 +201,7 @@ describe('action types', () => {
   it('types the instance of a server action from the config extensions', () => {
     definePGliteConfig({
       extensions: { live },
-      actions: [
+      devtoolsActions: [
         {
           id: 'live',
           label: 'Live',
@@ -219,10 +219,10 @@ describe('action types', () => {
       label: 'Now',
       run: ({ pg }) => pg.query('SELECT now()'),
     }
-    definePGliteConfig({ extensions: { live }, actions: [plain] })
+    definePGliteConfig({ extensions: { live }, devtoolsActions: [plain] })
     definePGliteClientConfig({
       clientExtensions: { live },
-      actions: [
+      devtoolsActions: [
         {
           id: 'live',
           label: 'Live',
@@ -238,7 +238,7 @@ describe('action types', () => {
     const options: ModuleOptions = {
       socket: {
         port: 5433,
-        actions: [
+        devtoolsActions: [
           {
             id: 'url',
             label: 'URL',
@@ -259,8 +259,24 @@ describe('action types', () => {
     }
     expectTypeOf(moved).toEqualTypeOf<ModuleOptions>()
     definePGliteConfig({
-      // @ts-expect-error -- actions sit at the root of the config file
+      // @ts-expect-error -- `devtoolsActions` sit at the root of the config file
       devtools: { actions: [] },
+    })
+  })
+
+  it('names the actions key `devtoolsActions`, rejecting `actions`', () => {
+    const options: ModuleOptions = {
+      // @ts-expect-error -- renamed to `devtoolsActions`
+      socket: { actions: [] },
+    }
+    expectTypeOf(options).toEqualTypeOf<ModuleOptions>()
+    definePGliteConfig({
+      // @ts-expect-error -- renamed to `devtoolsActions`
+      actions: [],
+    })
+    definePGliteClientConfig({
+      // @ts-expect-error -- renamed to `devtoolsActions`
+      actions: [],
     })
   })
 })

@@ -8,7 +8,7 @@ export default definePGliteClientConfig({
   init: async (pg) => {
     await pg.exec('CREATE EXTENSION IF NOT EXISTS vector')
   },
-  actions: [
+  devtoolsActions: [
     {
       id: 'clear',
       label: 'Clear the test table',
