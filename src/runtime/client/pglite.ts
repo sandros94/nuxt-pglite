@@ -1,8 +1,8 @@
 import { PGliteWorker } from '@electric-sql/pglite/worker'
 import { createError } from '#imports'
 
-import { createPGliteProvider } from '../core'
-import type { PGliteProvider } from '../core'
+import { createPGliteProvider } from '../core/provider'
+import type { PGliteProvider } from '../core/provider'
 import type { PGliteClientInstanceFor } from './config'
 import config from '#pglite/client-config'
 

@@ -3,8 +3,8 @@
  * same names, no PGlite behind them, so a stray import fails with a pointer
  * instead of pulling the engine into the bundle.
  */
-export { definePGliteConfig as definePGliteServerConfig } from '../core'
-export type { PGliteConfig, PGliteInstanceFor, PGliteServerAction } from '../core'
+export { definePGliteConfig as definePGliteServerConfig } from '../core/config'
+export type { PGliteConfig, PGliteInstanceFor, PGliteServerAction } from '../core/config'
 
 const message =
   '[nuxt-pglite] `pglite.server` is disabled: `usePGlite()` has no instance. Enable it, or connect to `useRuntimeConfig().pglite.url` if you are using the development socket.'

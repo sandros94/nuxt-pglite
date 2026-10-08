@@ -1,7 +1,7 @@
 import { useRuntimeConfig } from 'nuxt/server'
 
-import { createPGliteProvider } from '../../core'
-import type { InitScope, PGliteProvider } from '../../core'
+import { createPGliteProvider } from '../../core/provider'
+import type { InitScope, PGliteProvider } from '../../core/provider'
 import config, { socketDataDir } from '#pglite/server-config'
 
 type Provider = ReturnType<typeof createProvider>

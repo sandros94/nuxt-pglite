@@ -26,7 +26,7 @@ export async function setupClient(options: ClientOptions, nuxt: Nuxt, resolver: 
           // not name a path, but `import()` types may.
           `declare module '${CONFIG_ID}' {`,
           configPath && options.enabled
-            ? `  const config: ReturnType<typeof import('${corePathForTypes(resolver, './runtime/core')}').resolveEnvConfig<typeof import('${withoutExtension(configPath)}').default>>`
+            ? `  const config: ReturnType<typeof import('${corePathForTypes(resolver, './runtime/core/kind')}').resolveEnvConfig<typeof import('${withoutExtension(configPath)}').default>>`
             : `  const config: import('${corePathForTypes(resolver, './runtime/client/config')}').PGliteClientConfig`,
           `  export default config`,
           `}`,
@@ -62,8 +62,8 @@ export async function setupClient(options: ClientOptions, nuxt: Nuxt, resolver: 
   // in a template both bundles can reach through the alias.
   // Full file paths: a generated module's imports are resolved by whichever
   // bundler builds it, and not all of them resolve a bare directory.
-  const [corePath, clientConfigPath] = await Promise.all([
-    resolver.resolvePath('./runtime/core'),
+  const [kindPath, clientConfigPath] = await Promise.all([
+    resolver.resolvePath('./runtime/core/kind'),
     resolver.resolvePath('./runtime/client/config'),
   ])
 
@@ -85,7 +85,7 @@ export async function setupClient(options: ClientOptions, nuxt: Nuxt, resolver: 
     getContents: () =>
       [
         `import ${JSON.stringify(shim.dst)}`,
-        `import { assertConfigKind, resolveEnvConfig } from ${JSON.stringify(corePath)}`,
+        `import { assertConfigKind, resolveEnvConfig } from ${JSON.stringify(kindPath)}`,
         configPath
           ? `import userConfig from ${JSON.stringify(configPath)}`
           : `const userConfig = {}`,

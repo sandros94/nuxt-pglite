@@ -7,13 +7,8 @@ import type { HookResult } from '@nuxt/schema'
 
 import type { PGliteAction } from './runtime/core/actions'
 
-export type {
-  PGliteAction,
-  PGliteActionInfo,
-  PGliteActionSide,
-  PGliteServerAction,
-  PGliteServerActionContext,
-} from './runtime/core'
+export type { PGliteAction, PGliteActionInfo, PGliteActionSide } from './runtime/core/actions'
+export type { PGliteServerAction, PGliteServerActionContext } from './runtime/core/config'
 export type { PGliteClientAction, PGliteClientActionContext } from './runtime/client/config'
 
 /**

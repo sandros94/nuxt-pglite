@@ -16,12 +16,13 @@ import type { Nuxt } from '@nuxt/schema'
 import defu from 'defu'
 import type { PGlite } from '@electric-sql/pglite'
 
-import { assertConfigKind, definePGliteConfig, resolveEnvConfig } from './runtime/core'
-import type { PGliteConfig } from './runtime/core'
+import { definePGliteConfig } from './runtime/core/config'
+import type { PGliteConfig } from './runtime/core/config'
+import { assertConfigKind, resolveEnvConfig } from './runtime/core/kind'
 import { definePGliteClientConfig } from './runtime/client/config'
-import { createPGliteSocketServer } from './runtime/socket'
+import { createPGliteSocketServer } from './runtime/socket/server'
 import { corePathForTypes, importedPackages, withoutExtension } from './utils/imports'
-import type { PGliteSocketServer } from './runtime/socket'
+import type { PGliteSocketServer } from './runtime/socket/server'
 import type { ServerOptions, SocketOptions } from './types'
 
 const CONFIG_ID = '#pglite/server-config'
@@ -84,11 +85,14 @@ export async function setupServer(
   addServerTypes(configPath, resolver)
   // The config file is typed with the helper even when only the socket loads
   // it, so it comes from core rather than from the (then disabled) server entry.
+  // From the config file itself, not the core index: the index reaches the
+  // provider and its `import('@electric-sql/pglite')`, which Nitro would trace
+  // into the output even while the server side is disabled.
   addServerImports([
     {
       name: 'definePGliteConfig',
       as: 'definePGliteServerConfig',
-      from: resolver.resolve('./runtime/core'),
+      from: resolver.resolve('./runtime/core/config'),
     },
   ])
   if (!options.enabled) {
@@ -96,13 +100,13 @@ export async function setupServer(
   }
 
   // A full file path, so that any bundler resolves the generated import.
-  const corePath = await resolver.resolvePath('./runtime/core')
+  const kindPath = await resolver.resolvePath('./runtime/core/kind')
 
   addServerTemplate({
     filename: CONFIG_ID,
     getContents: () =>
       [
-        `import { assertConfigKind, resolveEnvConfig } from ${JSON.stringify(corePath)}`,
+        `import { assertConfigKind, resolveEnvConfig } from ${JSON.stringify(kindPath)}`,
         configPath
           ? `import userConfig from ${JSON.stringify(configPath)}`
           : `const userConfig = {}`,
@@ -151,8 +155,8 @@ function addServerTypes(configPath: string | undefined, resolver: Resolver) {
           `  export const socketDataDir: string | undefined`,
           `  export const eager: boolean`,
           configPath
-            ? `  const config: ReturnType<typeof import('${corePathForTypes(resolver, './runtime/core')}').resolveEnvConfig<typeof import('${withoutExtension(configPath)}').default>>`
-            : `  const config: import('${corePathForTypes(resolver, './runtime/core')}').PGliteConfig`,
+            ? `  const config: ReturnType<typeof import('${corePathForTypes(resolver, './runtime/core/kind')}').resolveEnvConfig<typeof import('${withoutExtension(configPath)}').default>>`
+            : `  const config: import('${corePathForTypes(resolver, './runtime/core/config')}').PGliteConfig`,
           `  export default config`,
           `}`,
         ].join('\n'),
