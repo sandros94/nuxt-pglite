@@ -37,6 +37,10 @@
     "./socket": {
       "types": "./dist/runtime/socket/index.d.ts",
       "import": "./dist/runtime/socket/index.js"
+    },
+    "./migrations": {
+      "types": "./dist/runtime/migrations/index.d.ts",
+      "import": "./dist/runtime/migrations/index.js"
     }
   },
   "scripts": {

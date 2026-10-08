@@ -48,7 +48,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     const runtimeDir = resolver.resolve('./runtime')
     nuxt.options.build.transpile.push(runtimeDir)
     // One alias per entry, for app code and for modules building on this one.
-    for (const entry of ['core', 'socket', 'server', 'client']) {
+    for (const entry of ['core', 'socket', 'migrations', 'server', 'client']) {
       nuxt.options.alias[`#pglite/${entry}`] = resolver.resolve(runtimeDir, entry)
     }
     // A disabled side keeps its alias, pointing at a stub with the same names.

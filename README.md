@@ -21,7 +21,7 @@ Tooling around [PGlite](https://pglite.dev) for Nuxt apps, in three independent 
 
 Each piece is only in your bundle when it is enabled. `@electric-sql/pglite` is a peer dependency, so you pick its version and import extensions yourself: nothing is wrapped, and the types follow your config.
 
-The framework-agnostic parts ship as their own entries: `nuxt-pglite/core` (config helper + lazy provider) and `nuxt-pglite/socket` (the wire-protocol server), usable from any Node server.
+The framework-agnostic parts ship as their own entries: `nuxt-pglite/core` (config helper + lazy provider), `nuxt-pglite/socket` (the wire-protocol server) and `nuxt-pglite/migrations` (an SQL migrations applier), usable from any Node server.
 
 ## Quick setup
 
@@ -180,6 +180,46 @@ The instance is created, and `init` (migrations, seeding) run, when `nuxt dev` s
 PGlite allows one instance per data directory, so `usePGlite()` in your routes refuses the directory the socket serves; connect through the URL instead, or give the server instance another `dataDir`. Tested with `pg`, postgres.js, `psql` and `drizzle-kit push`, on Node, Bun and Deno. One client owns the database at a time for the length of a transaction or pipeline, others queue; the process's own `db.query()` / `db.transaction()` calls queue the same way, so neither side's statements land inside the other's transaction. An owner that stays idle inside a transaction or pipeline past `idleInTransactionTimeout` is disconnected. Notifications reach the clients that ran `LISTEN` on the channel, and a client's settings, temp tables, advisory locks and subscriptions are dropped when it disconnects, as a real server would; the settings the process set before the server started are kept.
 
 Known differences from a real server, inherent to one shared session: `COPY … FROM STDIN` is refused (`0A000`, PGlite cannot run it); `LISTEN`/`UNLISTEN` and SQL-level `PREPARE` / `EXECUTE` / `DEALLOCATE` are recognised as single statements, the way drivers send them, and `LISTEN` takes effect regardless of the transaction it ran in; temp tables and advisory locks taken by the process itself are released when any client disconnects.
+
+## Migrations
+
+Some platforms apply the SQL migrations committed with the app themselves: Netlify Database runs the files in `netlify/database/migrations` at deploy time. `nuxt-pglite/migrations` applies the same files to the local database, with the same bookkeeping (each migration in its own transaction, recorded in `netlify.migrations`), so the local schema comes from the files the deployed one will:
+
+```ts
+// server/pglite.config.ts
+import { applyMigrations } from 'nuxt-pglite/migrations'
+
+export default definePGliteServerConfig({
+  init: (pg) => applyMigrations(pg, 'netlify/database/migrations'),
+})
+```
+
+`init` runs once per created instance, the socket's included, so the database is brought up to the files before anything queries it. The directory is resolved from `process.cwd()`. With the in-process server (`server.enabled`), `init` also runs in the built app, where the files are not shipped: keep it under `$development` there, or pass an absolute path to a directory that exists at runtime.
+
+A migration is either a `<name>/migration.sql` directory, the layout drizzle-kit 1.0 generates (`<timestamp>_<name>/migration.sql`), or a flat `<name>.sql` file. Anything else in the directory is ignored, and migrations apply in name order. Options: `table` (the tracking table, `schema.table` or `table`, default `netlify.migrations`), `target` (stop at a migration, by full name or by the part before an `_`), `digests` (see below), `logger` (`{ info, warn }`, e.g. `consola`; silent by default). `readMigrations(dir)` lists the migrations as `applyMigrations` sees them, for tooling.
+
+A failing migration throws a `MigrationError` (with the `migration` name and the database error as `cause`) once its transaction is rolled back; the migrations after it are not run.
+
+### Edited migrations
+
+Applied migrations never run again, so a file edited or removed after it was applied (e.g. `drizzle-kit generate` rewriting the last migration while the schema is still in flux) leaves the local database built from files the deployed one will never see. `applyMigrations` records the sha256 digest of each migration it applies (in `nuxt_pglite.migration_digest`) and, before applying anything, checks the applied ones against their files: any `edited` or `removed` throws a `MigrationDriftError` listing them in `details`. The remedy is to reset the local database and let `init` apply the current files from scratch; the DevTools tab has a `reset-database` action for it. Migrations applied before digests were recorded get theirs recorded as their files are now. `digests: false` disables the check, a string names another table.
+
+### Against Postgres
+
+Any database with `exec`, `query` and `transaction` works, PGlite as is. `fromPool` adapts a `pg` pool, e.g. to apply the same files to a real Postgres in CI:
+
+```ts
+import { Pool } from 'pg'
+import { applyMigrations, fromPool } from 'nuxt-pglite/migrations'
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+
+try {
+  console.log(await applyMigrations(fromPool(pool), 'netlify/database/migrations'))
+} finally {
+  await pool.end()
+}
+```
 
 ## Client
 
@@ -343,7 +383,7 @@ await pglite.close()
 
 `server.refuse(reason, { hint })` disconnects the clients and refuses new ones (`57P03`, `PGlite is not ready: <reason>`) while the instance is unavailable; `server.serve(db)` serves an instance from then on, behind the same URL. `createPGliteSocketServer(null)` starts refusing until the first `serve()`.
 
-Both entries import only `@electric-sql/pglite` and Node built-ins.
+Both entries import only `@electric-sql/pglite` and Node built-ins; `nuxt-pglite/migrations` only Node built-ins.
 
 ## Contribution
 

@@ -19,13 +19,13 @@ export interface PGliteConfig<E extends Extensions = {}> extends PGliteOptions<E
    * Runs once per created instance, before it is handed out: the place for
    * `CREATE EXTENSION`, schema setup or seeding.
    */
-  init?: (pg: PGliteInstanceFor<PGliteConfig<E>>) => void | Promise<void>
+  init?: (pg: PGliteInstanceFor<PGliteConfig<E>>) => unknown
 
   /**
    * Runs before the instance is closed through its provider, e.g. on server
    * shutdown: the place to flush or checkpoint.
    */
-  dispose?: (pg: PGliteInstanceFor<PGliteConfig<E>>) => void | Promise<void>
+  dispose?: (pg: PGliteInstanceFor<PGliteConfig<E>>) => unknown
 
   /** Development tooling for this instance; nothing of it runs in a build. */
   devtools?: {
