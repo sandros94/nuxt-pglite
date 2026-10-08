@@ -1,14 +1,11 @@
-import type { PGliteProcessAction } from 'nuxt-pglite'
+import type { PGliteSocketAction } from 'nuxt-pglite'
 
 /** Opens Drizzle Studio on the development socket, in a DevTools terminal. */
-const studio: PGliteProcessAction = {
+const studio: PGliteSocketAction = {
   id: 'drizzle-studio',
   label: 'Open Drizzle Studio',
   description: 'Runs `drizzle-kit studio` against the development socket',
-  run: ({ socketUrl, startSubprocess }) => {
-    if (!socketUrl) {
-      throw new Error('The development socket is not running.')
-    }
+  run: ({ startSubprocess }) => {
     // `drizzle.config.ts` points at the pinned socket port, so no variable to pass.
     startSubprocess(
       { command: 'pnpm', args: ['exec', 'drizzle-kit', 'studio'] },
@@ -75,11 +72,8 @@ export default defineNuxtConfig({
     // (the `netlify` preset) and Netlify in production.
     server: {
       enabled: false,
-      socket: { port: 5456, provider: 'netlify' },
     },
-    devtools: {
-      actions: [studio],
-    },
+    socket: { port: 5456, provider: 'netlify', actions: [studio] },
   },
 
   llms: {

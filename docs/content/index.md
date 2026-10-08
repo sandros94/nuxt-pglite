@@ -46,10 +46,7 @@ Nuxt PGlite wires [PGlite](https://pglite.dev), Postgres compiled to WebAssembly
     export default defineNuxtConfig({
       modules: ['nuxt-pglite'],
       pglite: {
-        server: {
-          // a Postgres URL while `nuxt dev` runs
-          socket: { port: 5433 },
-        },
+        socket: { port: 5433 }, // a Postgres URL while `nuxt dev` runs
         client: { enabled: true },
       },
     })
@@ -60,10 +57,7 @@ Nuxt PGlite wires [PGlite](https://pglite.dev), Postgres compiled to WebAssembly
   export default defineNuxtConfig({
     modules: ['nuxt-pglite'],
     pglite: {
-      server: {
-        // a Postgres URL while `nuxt dev` runs
-        socket: { port: 5433 },
-      },
+      socket: { port: 5433 }, // a Postgres URL while `nuxt dev` runs
       client: { enabled: true },
     },
   })

@@ -14,26 +14,24 @@ const migrations = fileURLToPath(new URL('../netlify/database/migrations', impor
  */
 export default definePGliteServerConfig({
   init: (pg) => applyMigrations(pg, migrations),
-  devtools: {
-    actions: [
-      {
-        id: 'seed-visits',
-        label: 'Seed visits',
-        description: 'Inserts three rows into the `visits` table, spread over the last hour',
-        run: async ({ pg }) =>
-          (
-            await pg.query(`
-              INSERT INTO visits (created_at)
-              VALUES (now() - interval '1 hour'), (now() - interval '30 minutes'), (now())
-            `)
-          ).affectedRows,
-      },
-      {
-        id: 'clear-visits',
-        label: 'Clear visits',
-        description: 'Deletes every row of the `visits` table',
-        run: async ({ pg }) => (await pg.query('DELETE FROM visits')).affectedRows,
-      },
-    ],
-  },
+  actions: [
+    {
+      id: 'seed-visits',
+      label: 'Seed visits',
+      description: 'Inserts three rows into the `visits` table, spread over the last hour',
+      run: async ({ pg }) =>
+        (
+          await pg.query(`
+            INSERT INTO visits (created_at)
+            VALUES (now() - interval '1 hour'), (now() - interval '30 minutes'), (now())
+          `)
+        ).affectedRows,
+    },
+    {
+      id: 'clear-visits',
+      label: 'Clear visits',
+      description: 'Deletes every row of the `visits` table',
+      run: async ({ pg }) => (await pg.query('DELETE FROM visits')).affectedRows,
+    },
+  ],
 })

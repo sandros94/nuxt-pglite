@@ -9,17 +9,15 @@ export default definePGliteClientConfig({
   init: async (pg) => {
     await pg.exec(TODOS_SQL + PLANETS_SQL)
   },
-  devtools: {
-    actions: [
-      {
-        id: 'reset',
-        label: 'Reset the examples',
-        description: 'Drops and seeds the tables the interactive examples use',
-        run: async ({ pg }) => {
-          await pg.exec(`DROP TABLE IF EXISTS todos, planets; ${TODOS_SQL}${PLANETS_SQL}`)
-          return 'Tables recreated'
-        },
+  actions: [
+    {
+      id: 'reset',
+      label: 'Reset the examples',
+      description: 'Drops and seeds the tables the interactive examples use',
+      run: async ({ pg }) => {
+        await pg.exec(`DROP TABLE IF EXISTS todos, planets; ${TODOS_SQL}${PLANETS_SQL}`)
+        return 'Tables recreated'
       },
-    ],
-  },
+    },
+  ],
 })
