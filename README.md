@@ -347,6 +347,19 @@ pnpm test:e2e
 pnpm build
 ```
 
+The suite also runs against the Nuxt 5 nightly, locally only until Nuxt 5 reaches a release candidate. Append the overrides to `pnpm-workspace.yaml`, install without the frozen lockfile, run the checks, then revert both files:
+
+```yaml
+overrides:
+  nuxt: npm:nuxt-nightly@5x
+  '@nuxt/kit': npm:@nuxt/kit-nightly@5x
+  '@nuxt/schema': npm:@nuxt/schema-nightly@5x
+```
+
+```bash
+pnpm install --no-frozen-lockfile && pnpm typecheck && pnpm test
+```
+
 </details>
 
 ## License
