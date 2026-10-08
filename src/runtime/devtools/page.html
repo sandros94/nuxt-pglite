@@ -1,0 +1,913 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PGlite</title>
+    <!--
+      The PGlite tab of Nuxt DevTools: one static page, no build step. It talks
+      to the Nuxt process through the DevTools RPC, to Nitro through the dev
+      endpoint and to the app through the DevTools iframe client
+      (`window.__NUXT_DEVTOOLS__`, which DevTools sets on its iframes).
+    -->
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #ffffff;
+        --fg: #1a1a1a;
+        --muted: #6b7280;
+        --border: rgba(156, 163, 175, 0.25);
+        --panel: rgba(156, 163, 175, 0.08);
+        --panel-hover: rgba(156, 163, 175, 0.16);
+        --primary: #00dc82;
+        --primary-dim: rgba(0, 220, 130, 0.12);
+        --ok: #15803d;
+        --error: #dc2626;
+        --warn: #d97706;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+          --bg: #121212;
+          --fg: #e5e7eb;
+          --muted: #9ca3af;
+          --ok: #4ade80;
+          --error: #f87171;
+          --warn: #fbbf24;
+        }
+      }
+      /* DevTools marks the frame when it is in dark mode itself. */
+      :root.dark {
+        color-scheme: dark;
+        --bg: #121212;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --ok: #4ade80;
+        --error: #f87171;
+        --warn: #fbbf24;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          14px/1.5 Inter,
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+        display: flex;
+        flex-direction: column;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      header svg {
+        width: 22px;
+        height: 22px;
+        flex: none;
+        color: var(--primary);
+      }
+      header h1 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+      }
+      header p {
+        margin: 0;
+        font-size: 12.5px;
+      }
+      header .spacer {
+        flex: 1;
+      }
+      nav {
+        display: flex;
+        gap: 2px;
+        padding: 0 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      nav button {
+        border: none;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        background: none;
+        padding: 8px 12px;
+        margin-bottom: -1px;
+        color: var(--muted);
+      }
+      nav button:hover {
+        background: var(--panel);
+        color: var(--fg);
+      }
+      nav button.active {
+        color: var(--fg);
+        border-bottom-color: var(--primary);
+      }
+      main > [hidden] {
+        display: none;
+      }
+      .pane {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+        gap: 16px;
+        align-items: start;
+      }
+      .pane.single {
+        grid-template-columns: 1fr;
+      }
+      .segmented {
+        display: inline-flex;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .segmented button {
+        border: none;
+        border-radius: 0;
+        background: none;
+      }
+      .segmented button + button {
+        border-left: 1px solid var(--border);
+      }
+      .segmented button.active {
+        background: var(--primary-dim);
+        color: var(--ok);
+      }
+      .history li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+      }
+      .history code {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        background: none;
+        padding: 0;
+      }
+      .history .remove {
+        padding: 0 8px;
+        color: var(--muted);
+      }
+      main {
+        flex: 1;
+        padding: 16px 20px 32px;
+      }
+      section {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0 0 14px;
+        min-width: 0;
+      }
+      section > h2 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        padding: 10px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel);
+        border-radius: 8px 8px 0 0;
+      }
+      section > :not(h2) {
+        margin-left: 16px;
+        margin-right: 16px;
+      }
+      section > dl,
+      section > p {
+        margin-top: 12px;
+      }
+      h3 {
+        margin: 18px 16px 6px;
+        font-size: 11px;
+        color: var(--muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      dl {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: 4px 16px;
+        margin: 0;
+      }
+      dt {
+        color: var(--muted);
+      }
+      dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      code,
+      pre,
+      textarea,
+      table {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12.5px;
+      }
+      code {
+        padding: 1px 5px;
+        border-radius: 4px;
+        background: var(--panel);
+      }
+      .badge {
+        display: inline-block;
+        padding: 0 8px;
+        border-radius: 999px;
+        font-size: 11.5px;
+        line-height: 18px;
+        background: var(--panel);
+        color: var(--muted);
+      }
+      .badge.on {
+        background: var(--primary-dim);
+        color: var(--ok);
+      }
+      ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+      }
+      li {
+        padding: 8px 12px;
+        border-top: 1px solid var(--border);
+      }
+      li:first-child {
+        border-top: none;
+      }
+      li:hover {
+        background: var(--panel);
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .grow {
+        flex: 1;
+        min-width: 0;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .error {
+        color: var(--error);
+      }
+      .ok {
+        color: var(--ok);
+      }
+      button {
+        font: inherit;
+        font-size: 13px;
+        padding: 3px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: var(--panel);
+        color: var(--fg);
+        cursor: pointer;
+        transition: background 0.1s;
+      }
+      button:hover {
+        background: var(--panel-hover);
+      }
+      button.primary {
+        border-color: var(--primary);
+        background: var(--primary-dim);
+        color: var(--ok);
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: progress;
+      }
+      pre {
+        margin: 6px 0 0;
+        padding: 8px 10px;
+        background: var(--panel);
+        border-radius: 6px;
+        overflow: auto;
+        max-height: 320px;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      textarea {
+        display: block;
+        width: 100%;
+        min-height: 96px;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: transparent;
+        color: var(--fg);
+        resize: vertical;
+        margin-bottom: 8px;
+      }
+      textarea:focus {
+        outline: none;
+        border-color: var(--primary);
+      }
+      .table {
+        margin-top: 8px;
+        overflow: auto;
+        max-height: 360px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 4px 10px;
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      th {
+        position: sticky;
+        top: 0;
+        background: var(--bg);
+        box-shadow: inset 0 -1px 0 var(--border);
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .caption {
+        margin-top: 10px;
+        font-size: 12.5px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <!-- simple-icons:postgresql (CC0) -->
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path
+          d="M23.56 14.723a.5.5 0 0 0-.057-.12q-.21-.395-1.007-.231c-1.654.34-2.294.13-2.526-.02c1.342-2.048 2.445-4.522 3.041-6.83c.272-1.05.798-3.523.122-4.73a1.6 1.6 0 0 0-.15-.236C21.693.91 19.8.025 17.51.001c-1.495-.016-2.77.346-3.116.479a10 10 0 0 0-.516-.082a8 8 0 0 0-1.312-.127c-1.182-.019-2.203.264-3.05.84C8.66.79 4.729-.534 2.296 1.19C.935 2.153.309 3.873.43 6.304c.041.818.507 3.334 1.243 5.744q.69 2.26 1.433 3.582q.83 1.493 1.714 1.79c.448.148 1.133.143 1.858-.729a56 56 0 0 1 1.945-2.206c.435.235.906.362 1.39.377v.004a11 11 0 0 0-.247.305c-.339.43-.41.52-1.5.745c-.31.064-1.134.233-1.146.811a.6.6 0 0 0 .091.327c.227.423.922.61 1.015.633c1.335.333 2.505.092 3.372-.679c-.017 2.231.077 4.418.345 5.088c.221.553.762 1.904 2.47 1.904q.375.001.829-.094c1.782-.382 2.556-1.17 2.855-2.906c.15-.87.402-2.875.539-4.101c.017-.07.036-.12.057-.136c0 0 .07-.048.427.03l.044.007l.254.022l.015.001c.847.039 1.911-.142 2.531-.43c.644-.3 1.806-1.033 1.595-1.67M2.37 11.876c-.744-2.435-1.178-4.885-1.212-5.571c-.109-2.172.417-3.683 1.562-4.493c1.837-1.299 4.84-.54 6.108-.13l-.01.01C6.795 3.734 6.843 7.226 6.85 7.44c0 .082.006.199.016.36c.034.586.1 1.68-.074 2.918c-.16 1.15.194 2.276.973 3.089q.12.126.252.237c-.347.371-1.1 1.193-1.903 2.158c-.568.682-.96.551-1.088.508c-.392-.13-.813-.587-1.239-1.322c-.48-.839-.963-2.032-1.415-3.512m6.007 5.088a1.6 1.6 0 0 1-.432-.178c.089-.039.237-.09.483-.14c1.284-.265 1.482-.451 1.915-1a8 8 0 0 1 .367-.443a.4.4 0 0 0 .074-.13c.17-.151.272-.11.436-.042c.156.065.308.26.37.475c.03.102.062.295-.045.445c-.904 1.266-2.222 1.25-3.168 1.013m2.094-3.988l-.052.14c-.133.357-.257.689-.334 1.004c-.667-.002-1.317-.288-1.81-.803c-.628-.655-.913-1.566-.783-2.5c.183-1.308.116-2.447.08-3.059l-.013-.22c.296-.262 1.666-.996 2.643-.772c.446.102.718.406.83.928c.585 2.704.078 3.83-.33 4.736a9 9 0 0 0-.23.546m7.364 4.572q-.024.266-.062.596l-.146.438a.4.4 0 0 0-.018.108c-.006.475-.054.649-.115.87a4.8 4.8 0 0 0-.18 1.057c-.11 1.414-.878 2.227-2.417 2.556c-1.515.325-1.784-.496-2.02-1.221a7 7 0 0 0-.078-.227c-.215-.586-.19-1.412-.157-2.555c.016-.561-.025-1.901-.33-2.646q.006-.44.019-.892a.4.4 0 0 0-.016-.113a2 2 0 0 0-.044-.208c-.122-.428-.42-.786-.78-.935c-.142-.059-.403-.167-.717-.087c.067-.276.183-.587.309-.925l.053-.142c.06-.16.134-.325.213-.5c.426-.948 1.01-2.246.376-5.178c-.237-1.098-1.03-1.634-2.232-1.51c-.72.075-1.38.366-1.709.532a6 6 0 0 0-.196.104c.092-1.106.439-3.174 1.736-4.482a4 4 0 0 1 .303-.276a.35.35 0 0 0 .145-.064c.752-.57 1.695-.85 2.802-.833q.616.01 1.174.081c1.94.355 3.244 1.447 4.036 2.383c.814.962 1.255 1.931 1.431 2.454c-1.323-.134-2.223.127-2.68.78c-.992 1.418.544 4.172 1.282 5.496c.135.242.252.452.289.54c.24.583.551.972.778 1.256c.07.087.138.171.189.245c-.4.116-1.12.383-1.055 1.717a35 35 0 0 1-.084.815c-.046.208-.07.46-.1.766m.89-1.621c-.04-.832.27-.919.597-1.01l.135-.041a1 1 0 0 0 .134.103c.57.376 1.583.421 3.007.134c-.202.177-.519.4-.953.601c-.41.19-1.096.333-1.747.364c-.72.034-1.086-.08-1.173-.151m.57-9.271a7 7 0 0 1-.105 1.001c-.055.358-.112.728-.127 1.177c-.014.436.04.89.093 1.33c.107.887.216 1.8-.207 2.701a4 4 0 0 1-.188-.385a8 8 0 0 0-.325-.617c-.616-1.104-2.057-3.69-1.32-4.744c.38-.543 1.342-.566 2.179-.463m.228 7.013l-.085-.107l-.035-.044c.726-1.2.584-2.387.457-3.439c-.052-.432-.1-.84-.088-1.222c.013-.407.066-.755.118-1.092c.064-.415.13-.844.111-1.35a.6.6 0 0 0 .012-.19c-.046-.486-.6-1.938-1.73-3.253a7.8 7.8 0 0 0-2.688-2.04A9.3 9.3 0 0 1 17.62.746c2.052.046 3.675.814 4.824 2.283a1 1 0 0 1 .067.1c.723 1.356-.276 6.275-2.987 10.54m-8.816-6.116c-.025.18-.31.423-.621.423l-.081-.006a.8.8 0 0 1-.506-.315c-.046-.06-.12-.178-.106-.285a.22.22 0 0 1 .093-.149c.118-.089.352-.122.61-.086c.316.044.642.193.61.418m7.93-.411c.011.08-.049.2-.153.31a.72.72 0 0 1-.408.223l-.075.005c-.293 0-.541-.234-.56-.371c-.024-.177.264-.31.56-.352c.298-.042.612.009.636.185"
+        />
+      </svg>
+      <div>
+        <h1>PGlite</h1>
+        <p class="muted">Server and browser instances, the development socket, and your actions.</p>
+      </div>
+      <div class="spacer"></div>
+      <p id="status" class="muted">Connecting to Nuxt DevTools…</p>
+    </header>
+    <nav id="tabs" hidden></nav>
+    <main id="app"></main>
+
+    <script type="module">
+      // Kept in sync with the module: `RPC_NAMESPACE` in `src/dev.ts`, the
+      // bridge key in `src/runtime/client/plugins/devtools.client.ts`.
+      const NAMESPACE = 'nuxt-pglite'
+      const BRIDGE = Symbol.for('nuxt-pglite:devtools')
+      const POLL_INTERVAL = 2000
+
+      const app = document.getElementById('app')
+      const status = document.getElementById('status')
+
+      /** Builds an element; strings become text nodes, never markup. */
+      function h(tag, props = {}, ...children) {
+        const element = document.createElement(tag)
+        for (const [key, value] of Object.entries(props)) {
+          if (key.startsWith('on')) {
+            element.addEventListener(key.slice(2), value)
+          } else if (value !== undefined && value !== false) {
+            element.setAttribute(key, value === true ? '' : value)
+          }
+        }
+        element.append(
+          ...children.flat(Infinity).filter((child) => child !== undefined && child !== null),
+        )
+        return element
+      }
+
+      function asText(value) {
+        if (value === null || value === undefined) return 'NULL'
+        return typeof value === 'object' ? JSON.stringify(value) : String(value)
+      }
+
+      function errorMessage(error) {
+        return error && typeof error.message === 'string' ? error.message : String(error)
+      }
+
+      /**
+       * Resolves with the DevTools iframe client, which DevTools assigns to
+       * this frame's `__NUXT_DEVTOOLS__` (what `useDevtoolsClient()` from
+       * `@nuxt/devtools-kit/iframe-client` reads), now or once it does.
+       */
+      function connect() {
+        return new Promise((resolve) => {
+          let current = window.__NUXT_DEVTOOLS__
+          Object.defineProperty(window, '__NUXT_DEVTOOLS__', {
+            configurable: true,
+            get: () => current,
+            set(value) {
+              current = value
+              if (value) resolve(value)
+            },
+          })
+          if (current) resolve(current)
+        })
+      }
+
+      /** Never throws: every failure is reported where the call was made. */
+      async function attempt(call) {
+        try {
+          return await call()
+        } catch (error) {
+          return { ok: false, error: errorMessage(error) }
+        }
+      }
+
+      async function nitro(route, body) {
+        const response = await fetch(route, {
+          method: body ? 'POST' : 'GET',
+          headers: { 'content-type': 'application/json' },
+          body: body && JSON.stringify(body),
+        })
+        if (!response.ok) throw new Error(`${route} answered ${response.status}.`)
+        return response.json()
+      }
+
+      function badge(on) {
+        return h('span', { class: on ? 'badge on' : 'badge' }, on ? 'enabled' : 'disabled')
+      }
+
+      function details(rows) {
+        return h(
+          'dl',
+          {},
+          rows.map(([term, value]) => [h('dt', {}, term), h('dd', {}, value)]),
+        )
+      }
+
+      function outcomeView(outcome) {
+        if (!outcome.ok) return h('pre', { class: 'error' }, outcome.error)
+        return h('pre', {}, JSON.stringify(outcome.result, null, 2))
+      }
+
+      function actionList(actions, run) {
+        if (!actions.length) return h('p', { class: 'muted' }, 'No actions configured.')
+        return h(
+          'ul',
+          {},
+          actions.map((action) => {
+            const output = h('div')
+            const button = h(
+              'button',
+              {
+                async onclick() {
+                  button.disabled = true
+                  output.replaceChildren(h('p', { class: 'muted' }, 'Running…'))
+                  const outcome = await attempt(() => run(action.id))
+                  output.replaceChildren(outcomeView(outcome))
+                  button.disabled = false
+                },
+              },
+              'Run',
+            )
+            return h(
+              'li',
+              {},
+              h(
+                'div',
+                { class: 'row' },
+                h(
+                  'div',
+                  { class: 'grow' },
+                  h('strong', {}, action.label),
+                  ' ',
+                  h('code', { class: 'muted' }, action.id),
+                  action.description && h('div', { class: 'muted' }, action.description),
+                ),
+                button,
+              ),
+              output,
+            )
+          }),
+        )
+      }
+
+      function queryResults(outcome) {
+        if (!outcome.ok) return [h('pre', { class: 'error' }, outcome.error)]
+        if (!outcome.results.length) return [h('p', { class: 'muted' }, 'No statements.')]
+        return outcome.results.map((result) => {
+          const parts = [result.command ?? 'OK']
+          if (result.fields.length) {
+            parts.push(`${result.rowCount} row${result.rowCount === 1 ? '' : 's'}`)
+            if (result.rows.length < result.rowCount)
+              parts.push(`first ${result.rows.length} shown`)
+          } else if (result.affectedRows) {
+            // Only here: PGlite also counts the rows a `SELECT` returns as affected.
+            parts.push(`${result.affectedRows} affected`)
+          }
+          const caption = h('div', { class: 'caption ok' }, parts.join(' · '))
+          if (!result.fields.length) return caption
+          return [
+            caption,
+            h(
+              'div',
+              { class: 'table' },
+              h(
+                'table',
+                {},
+                h(
+                  'thead',
+                  {},
+                  h(
+                    'tr',
+                    {},
+                    result.fields.map((field) => h('th', {}, field)),
+                  ),
+                ),
+                h(
+                  'tbody',
+                  {},
+                  result.rows.map((row) =>
+                    h(
+                      'tr',
+                      {},
+                      row.map((value) =>
+                        h('td', { class: value === null ? 'muted' : undefined }, asText(value)),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ]
+        })
+      }
+
+      // Last queries, newest first, per target: a small history survives reloads.
+      const HISTORY_KEY = 'nuxt-pglite:sql-history'
+      const HISTORY_SIZE = 20
+      const TAB_KEY = 'nuxt-pglite:tab'
+
+      function readStorage(key, fallback) {
+        try {
+          const raw = localStorage.getItem(key)
+          return raw ? JSON.parse(raw) : fallback
+        } catch {
+          return fallback
+        }
+      }
+
+      function writeStorage(key, value) {
+        try {
+          localStorage.setItem(key, JSON.stringify(value))
+        } catch {
+          // Storage may be unavailable; the history is a convenience only.
+        }
+      }
+
+      /**
+       * One editor for every instance: a toggle picks where the SQL runs,
+       * and the queries run before are kept to reload.
+       */
+      function sqlPane(targets) {
+        const available = targets.filter((target) => target.query)
+        if (!available.length) {
+          return h(
+            'p',
+            { class: 'muted' },
+            'No instance to query: enable the server or client side.',
+          )
+        }
+        let current = available[0]
+        const input = h('textarea', { spellcheck: 'false', placeholder: 'SELECT now();' })
+        const output = h('div')
+        const button = h('button', { type: 'submit', class: 'primary' }, 'Run')
+        const historyList = h('ul', { class: 'history' })
+        const note = h('p', { class: 'muted' })
+
+        const toggle = h(
+          'div',
+          { class: 'segmented' },
+          available.map((target) =>
+            h(
+              'button',
+              {
+                type: 'button',
+                class: target === current ? 'active' : undefined,
+                onclick(event) {
+                  current = target
+                  for (const sibling of toggle.children) sibling.classList.remove('active')
+                  event.currentTarget.classList.add('active')
+                  note.textContent = target.note
+                  renderHistory()
+                },
+              },
+              target.label,
+            ),
+          ),
+        )
+        note.textContent = current.note
+
+        function history() {
+          return readStorage(HISTORY_KEY, [])
+        }
+        function remember(sql) {
+          const entries = history().filter(
+            (entry) => !(entry.target === current.id && entry.sql === sql),
+          )
+          entries.unshift({ target: current.id, sql })
+          writeStorage(HISTORY_KEY, entries.slice(0, HISTORY_SIZE))
+          renderHistory()
+        }
+        function forget(entry) {
+          writeStorage(
+            HISTORY_KEY,
+            history().filter(
+              (other) => !(other.target === entry.target && other.sql === entry.sql),
+            ),
+          )
+          renderHistory()
+        }
+        function renderHistory() {
+          const entries = history().filter((entry) => entry.target === current.id)
+          historyList.hidden = entries.length === 0
+          historyList.replaceChildren(
+            ...entries.map((entry) =>
+              h(
+                'li',
+                {
+                  onclick() {
+                    input.value = entry.sql
+                    input.focus()
+                  },
+                },
+                h('code', { title: entry.sql }, entry.sql.replace(/\s+/g, ' ')),
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    class: 'remove',
+                    title: 'Forget',
+                    onclick(event) {
+                      event.stopPropagation()
+                      forget(entry)
+                    },
+                  },
+                  '×',
+                ),
+              ),
+            ),
+          )
+        }
+
+        const form = h(
+          'form',
+          {
+            async onsubmit(event) {
+              event.preventDefault()
+              const sql = input.value.trim()
+              if (!sql) return
+              button.disabled = true
+              const outcome = await attempt(() => current.query(sql))
+              output.replaceChildren(...queryResults(outcome).flat())
+              button.disabled = false
+              remember(sql)
+            },
+          },
+          h('div', { class: 'row' }, toggle, note),
+          input,
+          h('div', { class: 'row' }, button, h('span', { class: 'muted' }, 'Ctrl/⌘ + Enter')),
+        )
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) form.requestSubmit()
+        })
+        renderHistory()
+        return h(
+          'section',
+          {},
+          h('h2', {}, 'SQL'),
+          form,
+          output,
+          h('h3', {}, 'Recent'),
+          historyList,
+        )
+      }
+
+      function instanceRows(info) {
+        return [
+          ['Data directory', info.dataDir ? h('code', {}, info.dataDir) : 'in memory'],
+          ['Extensions', info.extensions.length ? info.extensions.join(', ') : 'none'],
+        ]
+      }
+
+      /**
+       * Where the server instance can be reached, with its info, actions and
+       * query function; `query` is unset when there is nothing to query.
+       */
+      async function serverTarget(rpc, state, view) {
+        const { server } = state
+        const rows = [
+          ['Enabled', badge(server.enabled)],
+          ['Eager', badge(server.eager)],
+        ]
+        if (server.socket) {
+          rows.push(['Socket', h('code', {}, server.socket.url)])
+          rows.push(['Connections', view.connections])
+        }
+        const target = { id: 'server', label: 'Server', rows, actions: [] }
+        if (!server.target) {
+          target.problem = 'No server instance in this app.'
+          return target
+        }
+        // Served over the socket, or created by Nitro's `usePGlite()`.
+        const viaSocket = server.target === 'socket'
+        rows.push(['Instance', viaSocket ? 'Development socket' : 'Nitro (usePGlite)'])
+        const info = viaSocket
+          ? server.instance
+          : await nitro(server.route).catch((error) => ({ error: errorMessage(error) }))
+        if (info.error) {
+          target.problem = info.error
+          return target
+        }
+        rows.push(...instanceRows(info))
+        target.actions = info.actions
+        target.run = viaSocket
+          ? (id) => rpc.runAction('server', id)
+          : (id) => nitro(server.route, { action: id })
+        target.query = viaSocket
+          ? (sql) => rpc.query(sql)
+          : (sql) => nitro(server.route, { query: sql })
+        target.note = viaSocket
+          ? 'Runs against the instance the socket serves.'
+          : 'Runs in Nitro, through usePGlite().'
+        return target
+      }
+
+      function clientTarget(state) {
+        const rows = [
+          ['Enabled', badge(state.client.enabled)],
+          ['Eager', badge(state.client.eager)],
+        ]
+        const target = { id: 'client', label: 'Client', rows, actions: [] }
+        if (!state.client.enabled) return target
+        // The app may reload: the bridge is looked up again on every run.
+        const bridge = () => window.__NUXT_DEVTOOLS__?.host?.nuxt?.[BRIDGE]
+        if (!bridge()) {
+          target.problem = 'The app is not loaded, or has not loaded the PGlite plugin yet.'
+          return target
+        }
+        const live = () => {
+          const current = bridge()
+          if (!current) throw new Error('The app is not loaded.')
+          return current
+        }
+        const info = bridge().describe()
+        rows.push(...instanceRows(info))
+        target.actions = info.actions
+        target.run = (id) => live().run(id)
+        target.query = (sql) => live().query(sql)
+        target.note = 'Runs in the app, against its worker instance.'
+        return target
+      }
+
+      function infoCard(target) {
+        return h(
+          'section',
+          {},
+          h('h2', {}, target.label),
+          details(target.rows),
+          target.problem && h('p', { class: 'muted' }, target.problem),
+        )
+      }
+
+      function actionsCard(title, note, actions, run) {
+        return h(
+          'section',
+          {},
+          h('h2', {}, title),
+          h('p', { class: 'muted' }, note),
+          run || !actions.length
+            ? actionList(actions, run)
+            : h('p', { class: 'muted' }, 'Not reachable right now.'),
+        )
+      }
+
+      function tabbed(panes) {
+        const nav = document.getElementById('tabs')
+        const stored = readStorage(TAB_KEY, panes[0].id)
+        const select = (id) => {
+          for (const pane of panes) {
+            pane.element.hidden = pane.id !== id
+            pane.button.classList.toggle('active', pane.id === id)
+          }
+          writeStorage(TAB_KEY, id)
+        }
+        for (const pane of panes) {
+          pane.button = h('button', { type: 'button', onclick: () => select(pane.id) }, pane.label)
+        }
+        nav.replaceChildren(...panes.map((pane) => pane.button))
+        nav.hidden = false
+        app.replaceChildren(...panes.map((pane) => pane.element))
+        select(panes.some((pane) => pane.id === stored) ? stored : panes[0].id)
+      }
+
+      async function render(rpc) {
+        const state = await rpc.getState()
+        const view = { connections: h('span', {}, String(state.server.socket?.connections ?? 0)) }
+        const server = await serverTarget(rpc, state, view)
+        const client = clientTarget(state)
+
+        tabbed([
+          {
+            id: 'overview',
+            label: 'Overview',
+            element: h('div', { class: 'pane' }, infoCard(server), infoCard(client)),
+          },
+          {
+            id: 'sql',
+            label: 'SQL',
+            element: h('div', { class: 'pane single' }, sqlPane([server, client])),
+          },
+          {
+            id: 'tools',
+            label: 'Tools',
+            element: h(
+              'div',
+              { class: 'pane' },
+              actionsCard(
+                'Server actions',
+                'From server/pglite.config.ts, run against the server instance.',
+                server.actions,
+                server.run,
+              ),
+              actionsCard(
+                'Client actions',
+                'From app/pglite.config.ts, run in the app against its worker instance.',
+                client.actions,
+                client.run,
+              ),
+              actionsCard(
+                'Tools',
+                'CLIs and other tools wired up in nuxt.config.ts; they reach the database through the socket URL, as any Postgres client would.',
+                state.process.actions,
+                (id) => rpc.runAction('process', id),
+              ),
+            ),
+          },
+        ])
+        status.className = ''
+        status.replaceChildren(h('button', { onclick: () => refresh(rpc) }, 'Refresh'))
+        return view
+      }
+
+      // Only the connection count changes on its own; refreshing re-renders
+      // everything and drops the results shown.
+      let live
+      async function refresh(rpc) {
+        try {
+          live = await render(rpc)
+        } catch (error) {
+          fail(error)
+        }
+      }
+
+      function fail(error) {
+        status.className = 'error'
+        status.textContent = errorMessage(error)
+      }
+
+      const hint = setTimeout(() => {
+        status.textContent = 'Waiting for Nuxt DevTools: open this page from its PGlite tab.'
+      }, 3000)
+
+      try {
+        const client = await connect()
+        clearTimeout(hint)
+        const rpc = client.devtools.extendClientRpc(NAMESPACE, {})
+        await refresh(rpc)
+        setInterval(async () => {
+          if (document.hidden || !live) return
+          const state = await rpc.getState().catch(() => undefined)
+          if (state?.server.socket)
+            live.connections.textContent = String(state.server.socket.connections)
+        }, POLL_INTERVAL)
+      } catch (error) {
+        fail(error)
+      }
+    </script>
+  </body>
+</html>

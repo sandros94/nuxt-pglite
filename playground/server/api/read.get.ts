@@ -1,17 +1,14 @@
-export default eventHandler(async (_event) => {
+import { defineEventHandler } from 'nuxt/server'
+
+import { tables, useDB } from '../utils/db'
+
+export default defineEventHandler(async (_event) => {
   const db = await useDB()
-  let data: { id: number; name: string | null }[]
 
-  try {
-    data = await db.select().from(tables.test)
-  } catch {
-    await db.$client.exec(`CREATE TABLE IF NOT EXISTS test (
-      id SERIAL PRIMARY KEY,
-      name TEXT
-    );`)
+  await db.execute(`CREATE TABLE IF NOT EXISTS test (
+    id SERIAL PRIMARY KEY,
+    name TEXT
+  );`)
 
-    return []
-  }
-
-  return data
+  return db.select().from(tables.test)
 })

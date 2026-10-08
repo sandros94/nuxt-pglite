@@ -1,3 +1,5 @@
+import type { PGliteProcessAction } from 'nuxt-pglite'
+
 export default defineNuxtConfig({
   compatibilityDate: 'latest',
   devtools: { enabled: true },
@@ -6,18 +8,22 @@ export default defineNuxtConfig({
 
   pglite: {
     client: {
-      extensions: ['live', 'vector'],
-      options: {
-        // dataDir: 'memory://nuxt-pglite',
-        dataDir: 'idb://nuxt-pglite',
-        // dataDir: 'opfs-ahp://nuxt-pglite',
-      },
+      enabled: true,
     },
     server: {
-      options: {
-        // dataDir: 'memory://nuxt-pglite',
-        dataDir: '.data/pglite',
-      },
+      socket: { port: 5455 },
+    },
+    devtools: {
+      actions: [
+        {
+          id: 'socket-url',
+          label: 'Print the socket URL',
+          run: ({ socketUrl, logger }) => {
+            logger.info(socketUrl ?? 'The socket is not running.')
+            return socketUrl
+          },
+        } satisfies PGliteProcessAction,
+      ],
     },
   },
 
