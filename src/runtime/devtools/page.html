@@ -271,6 +271,14 @@
       .ok {
         color: var(--ok);
       }
+      .notice {
+        padding: 8px 12px;
+        border: 1px solid var(--error);
+        border-radius: 6px;
+      }
+      .notice p {
+        margin: 4px 0 0;
+      }
       button {
         font: inherit;
         font-size: 13px;
@@ -719,16 +727,23 @@
        * query function; `query` is unset when there is nothing to query.
        */
       async function serverTarget(rpc, state, view) {
-        const { server } = state
+        const { server, socket } = state
         const rows = [
           ['Enabled', badge(server.enabled)],
           ['Eager', badge(server.eager)],
         ]
-        if (server.socket) {
-          rows.push(['Socket', h('code', {}, server.socket.url)])
+        if (socket) {
+          rows.push(['Socket', h('code', {}, socket.url)])
           rows.push(['Connections', view.connections])
+          const env = Object.entries(socket.env)
+          rows.push([
+            'Environment',
+            env.length
+              ? env.map(([name, value]) => h('div', {}, h('code', {}, `${name}=${value}`)))
+              : 'none exported',
+          ])
         }
-        const target = { id: 'server', label: 'Server', rows, actions: [] }
+        const target = { id: 'server', label: 'Server', rows, actions: [], refusal: server.refusal }
         if (!server.target) {
           target.problem = 'No server instance in this app.'
           return target
@@ -790,6 +805,18 @@
           {},
           h('h2', {}, target.label),
           details(target.rows),
+          target.refusal &&
+            h(
+              'div',
+              { class: 'notice error' },
+              h('strong', {}, 'The socket refuses clients: PGlite could not be created.'),
+              h('p', {}, target.refusal),
+              h(
+                'p',
+                { class: 'muted' },
+                'Restart nuxt dev once the cause is fixed, or run "Reset database" from the Tools tab to recreate the database from scratch.',
+              ),
+            ),
           target.problem && h('p', { class: 'muted' }, target.problem),
         )
       }
@@ -827,7 +854,10 @@
 
       async function render(rpc) {
         const state = await rpc.getState()
-        const view = { connections: h('span', {}, String(state.server.socket?.connections ?? 0)) }
+        const view = {
+          connections: h('span', {}, String(state.socket?.connections ?? 0)),
+          refusal: state.server.refusal,
+        }
         const server = await serverTarget(rpc, state, view)
         const client = clientTarget(state)
 
@@ -861,10 +891,12 @@
                 client.run,
               ),
               actionsCard(
-                'Tools',
-                'CLIs and other tools wired up in nuxt.config.ts; they reach the database through the socket URL, as any Postgres client would.',
-                state.process.actions,
-                (id) => rpc.runAction('process', id),
+                'Socket actions',
+                state.socket
+                  ? 'From nuxt.config.ts, run in the dev process next to the socket; they reach the database through its URL, as any Postgres client would.'
+                  : 'The development socket is not running: enable pglite.socket for actions next to it.',
+                state.socket?.actions ?? [],
+                (id) => rpc.runAction('socket', id),
               ),
             ),
           },
@@ -874,8 +906,8 @@
         return view
       }
 
-      // Only the connection count changes on its own; refreshing re-renders
-      // everything and drops the results shown.
+      // Only the connection count changes on its own, and the refusal with a
+      // reset; refreshing re-renders everything and drops the results shown.
       let live
       async function refresh(rpc) {
         try {
@@ -902,8 +934,8 @@
         setInterval(async () => {
           if (document.hidden || !live) return
           const state = await rpc.getState().catch(() => undefined)
-          if (state?.server.socket)
-            live.connections.textContent = String(state.server.socket.connections)
+          if (state && state.server.refusal !== live.refusal) return refresh(rpc)
+          if (state?.socket) live.connections.textContent = String(state.socket.connections)
         }, POLL_INTERVAL)
       } catch (error) {
         fail(error)

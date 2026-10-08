@@ -13,6 +13,7 @@ import type { PGliteAction } from '../../../src/runtime/core/actions'
 import { definePGliteConfig } from '../../../src/runtime/core'
 import type { PGliteServerAction } from '../../../src/runtime/core'
 import { definePGliteClientConfig } from '../../../src/runtime/client/config'
+import type { ModuleOptions } from '../../../src/types'
 
 const noop = () => {}
 
@@ -41,9 +42,9 @@ describe('describeActions', () => {
           { id: 'a', label: 'A', run: noop },
           { id: 'a', label: 'Again', run: noop },
         ],
-        'process',
+        'socket',
       ),
-    ).toThrow('Two process actions share the id "a"')
+    ).toThrow('Two socket actions share the id "a"')
     expect(() => describeActions([{ id: '', label: 'A', run: noop }], 'client')).toThrow(
       'A client action has no `id`',
     )
@@ -63,7 +64,7 @@ describe('describeInstance', () => {
           dataDir: 'idb://app',
           extensions: { vector: extension },
           clientExtensions: { live: extension },
-          devtools: { actions: [{ id: 'clear', label: 'Clear', run: noop }] },
+          devtoolsActions: [{ id: 'clear', label: 'Clear', run: noop }],
         },
         'client',
       ),
@@ -200,17 +201,15 @@ describe('action types', () => {
   it('types the instance of a server action from the config extensions', () => {
     definePGliteConfig({
       extensions: { live },
-      devtools: {
-        actions: [
-          {
-            id: 'live',
-            label: 'Live',
-            run: ({ pg }) => {
-              expectTypeOf(pg.live).not.toBeAny()
-            },
+      devtoolsActions: [
+        {
+          id: 'live',
+          label: 'Live',
+          run: ({ pg }) => {
+            expectTypeOf(pg.live).not.toBeAny()
           },
-        ],
-      },
+        },
+      ],
     })
   })
 
@@ -220,20 +219,64 @@ describe('action types', () => {
       label: 'Now',
       run: ({ pg }) => pg.query('SELECT now()'),
     }
-    definePGliteConfig({ extensions: { live }, devtools: { actions: [plain] } })
+    definePGliteConfig({ extensions: { live }, devtoolsActions: [plain] })
     definePGliteClientConfig({
       clientExtensions: { live },
-      devtools: {
-        actions: [
+      devtoolsActions: [
+        {
+          id: 'live',
+          label: 'Live',
+          run: ({ pg }) => {
+            expectTypeOf(pg.live).not.toBeAny()
+          },
+        },
+      ],
+    })
+  })
+
+  it('takes socket actions next to the socket, not under devtools or the server', () => {
+    const options: ModuleOptions = {
+      socket: {
+        port: 5433,
+        devtoolsActions: [
           {
-            id: 'live',
-            label: 'Live',
-            run: ({ pg }) => {
-              expectTypeOf(pg.live).not.toBeAny()
+            id: 'url',
+            label: 'URL',
+            run: ({ socketUrl }) => {
+              expectTypeOf(socketUrl).toEqualTypeOf<string>()
             },
           },
         ],
       },
+      devtools: true,
+    }
+    expectTypeOf(options.devtools).toEqualTypeOf<boolean | undefined>()
+    const moved: ModuleOptions = {
+      // @ts-expect-error -- the socket is an option of its own, at the root
+      server: { socket: true },
+      // @ts-expect-error -- `devtools` only toggles the tab
+      devtools: { actions: [] },
+    }
+    expectTypeOf(moved).toEqualTypeOf<ModuleOptions>()
+    definePGliteConfig({
+      // @ts-expect-error -- `devtoolsActions` sit at the root of the config file
+      devtools: { actions: [] },
+    })
+  })
+
+  it('names the actions key `devtoolsActions`, rejecting `actions`', () => {
+    const options: ModuleOptions = {
+      // @ts-expect-error -- renamed to `devtoolsActions`
+      socket: { actions: [] },
+    }
+    expectTypeOf(options).toEqualTypeOf<ModuleOptions>()
+    definePGliteConfig({
+      // @ts-expect-error -- renamed to `devtoolsActions`
+      actions: [],
+    })
+    definePGliteClientConfig({
+      // @ts-expect-error -- renamed to `devtoolsActions`
+      actions: [],
     })
   })
 })

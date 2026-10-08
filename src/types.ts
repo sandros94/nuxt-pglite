@@ -6,10 +6,14 @@ import type { NuxtLogger, NuxtTerminal } from '@nuxt/kit'
 import type { HookResult } from '@nuxt/schema'
 
 import type { PGliteAction } from './runtime/core/actions'
+import type { SocketEnv } from './runtime/socket/env'
+import type { SocketProvider } from './runtime/socket/providers'
 
 export type { PGliteAction, PGliteActionInfo, PGliteActionSide } from './runtime/core/actions'
 export type { PGliteServerAction, PGliteServerActionContext } from './runtime/core/config'
 export type { PGliteClientAction, PGliteClientActionContext } from './runtime/client/config'
+export type { SocketEnv } from './runtime/socket/env'
+export type { SocketProvider } from './runtime/socket/providers'
 
 /**
  * PGlite options that survive serialization into the build, i.e. everything
@@ -34,25 +38,46 @@ export interface SocketOptions {
   /** Unix socket path; takes precedence over `host` and `port`. */
   path?: string
   /**
-   * Environment variable that receives the connection URL, `DATABASE_URL` by
-   * default. Set only when the variable is still unset, so a real database
-   * configured in the environment always wins. `false` disables it.
+   * Environment variables exported for the socket, `DATABASE_URL` by default:
+   * a name receives the connection URL; a map gives each name a function of
+   * the URL or a string exported as is. Each is set only while still unset,
+   * so a real database configured in the environment wins, and a warning
+   * names any that hold something else once the dev server is up (set
+   * before, or overwritten by another module). `false` exports nothing.
    */
-  env?: string | false
+  env?: string | false | SocketEnv
+  /**
+   * Exports the variables a hosting provider sets for its database instead of
+   * `DATABASE_URL`, so that code written for it reaches the socket unchanged;
+   * `env` is merged over them. `netlify`: `NETLIFY_DB_URL` and
+   * `NETLIFY_DB_DRIVER=server`.
+   */
+  provider?: SocketProvider
   /** Clients allowed at once; unlimited by default. */
   maxConnections?: number
   /** Milliseconds a client may sit idle inside a transaction before it is disconnected; `0` disables it. */
   idleInTransactionTimeout?: number
+  /**
+   * Actions listed in Nuxt DevTools and the terminal picker, run in the dev
+   * process next to the socket. Other modules add theirs through the
+   * `pglite:devtools:actions` hook.
+   */
+  devtoolsActions?: PGliteSocketAction[]
 }
 
-/** What a `process` action receives: how to reach the database from outside the app. */
-export interface PGliteProcessActionContext {
-  /** Connection URL of the development socket, when it runs. */
-  socketUrl?: string
+/**
+ * What a `socket` action receives: how to reach the database from outside the
+ * app, through the socket.
+ */
+export interface PGliteSocketActionContext {
+  /** Connection URL of the development socket. */
+  socketUrl: string
   /**
-   * Data directory of the server side: the one the socket serves while it
-   * runs, the `nuxt.config` default otherwise. Unset for an in-memory database.
+   * The variables the socket exported, with their values: to pass on to a
+   * command so that it reaches the socket as the app does.
    */
+  env: Record<string, string>
+  /** Data directory the socket serves. Unset for an in-memory database. */
   dataDir?: string
   /**
    * Starts a long-running command whose output streams to its own terminal in
@@ -67,18 +92,11 @@ export interface PGliteProcessActionContext {
   logger: NuxtLogger
 }
 
-export type PGliteProcessAction = PGliteAction<PGliteProcessActionContext>
-
-export interface DevtoolsOptions {
-  /** Adds the PGlite tab to Nuxt DevTools, when DevTools is enabled. */
-  enabled: boolean
-  /**
-   * Actions that run outside the app, reaching the database through the
-   * socket URL: CLIs, migrations, studios. Other modules add theirs through
-   * the `pglite:devtools:actions` hook.
-   */
-  actions: PGliteProcessAction[]
-}
+/**
+ * An action that runs in the dev process next to the socket, reaching the
+ * database through its URL: CLIs, migrations, studios.
+ */
+export type PGliteSocketAction = PGliteAction<PGliteSocketActionContext>
 
 export interface ServerOptions {
   /** Registers `usePGlite()` and the server-side instance. */
@@ -97,12 +115,6 @@ export interface ServerOptions {
   options: SerializablePGliteOptions
   /** Creates the instance when the server starts instead of on first use. */
   eager: boolean
-  /**
-   * Serves the development instance over the Postgres wire protocol, so
-   * drivers and tools outside the app (`drizzle-kit`, `psql`, …) reach it
-   * through a connection URL. Development only.
-   */
-  socket: boolean | SocketOptions
 }
 
 export interface ClientOptions {
@@ -123,15 +135,26 @@ export interface ClientOptions {
 export interface ResolvedModuleOptions {
   server: ServerOptions
   client: ClientOptions
-  /** Nuxt DevTools integration and `process` actions: none of it is registered outside `nuxt dev`. */
-  devtools: DevtoolsOptions
+  /**
+   * Serves the server config's instance over the Postgres wire protocol, so
+   * drivers and tools outside the app (`drizzle-kit`, `psql`, …) reach it
+   * through a connection URL. Development only, and independent of
+   * `server.enabled`.
+   */
+  socket: boolean | SocketOptions
+  /**
+   * Adds the PGlite tab to Nuxt DevTools, when DevTools is enabled. Nothing
+   * of it is registered outside `nuxt dev`.
+   */
+  devtools: boolean
 }
 
 /** What `nuxt.config` accepts: any part of it, merged over the defaults. */
 export interface ModuleOptions {
   server?: Partial<ServerOptions>
   client?: Partial<ClientOptions>
-  devtools?: Partial<DevtoolsOptions>
+  socket?: boolean | SocketOptions
+  devtools?: boolean
 }
 
 /**
@@ -140,10 +163,10 @@ export interface ModuleOptions {
  */
 export interface ModuleHooks {
   /**
-   * Collects the `process` actions, once every module is set up: push to the
-   * array. Called in development only.
+   * Collects the `socket` actions, once every module is set up: push to the
+   * array. Called in development only, while the socket runs.
    */
-  'pglite:devtools:actions': (actions: PGliteProcessAction[]) => HookResult
+  'pglite:devtools:actions': (actions: PGliteSocketAction[]) => HookResult
   /**
    * Opens the action picker in the terminal of an interactive `nuxt dev`.
    * Registered only there, and only when there are actions to pick from.

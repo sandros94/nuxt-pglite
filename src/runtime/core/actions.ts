@@ -17,9 +17,9 @@ export interface PGliteAction<Ctx> {
 
 /**
  * Where an action runs: next to the server instance, in the browser next to
- * the worker instance, or in the Nuxt process.
+ * the worker instance, or in the dev process next to the socket.
  */
-export type PGliteActionSide = 'server' | 'client' | 'process'
+export type PGliteActionSide = 'server' | 'client' | 'socket'
 
 /** What the tooling knows of an action: everything but the code. */
 export interface PGliteActionInfo {
@@ -86,7 +86,7 @@ export function describeInstance(
     dataDir?: string
     extensions?: object
     clientExtensions?: object
-    devtools?: { actions?: readonly PGliteAction<never>[] }
+    devtoolsActions?: readonly PGliteAction<never>[]
   },
   side: 'server' | 'client',
 ): PGliteInstanceInfo {
@@ -95,7 +95,7 @@ export function describeInstance(
       ...Object.keys(config.extensions ?? {}),
       ...Object.keys(config.clientExtensions ?? {}),
     ],
-    actions: describeActions(config.devtools?.actions, side),
+    actions: describeActions(config.devtoolsActions, side),
   }
   if (config.dataDir) {
     info.dataDir = config.dataDir

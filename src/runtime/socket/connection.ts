@@ -55,6 +55,7 @@ export async function readServerParameters(db: PGlite): Promise<Map<string, stri
 export interface Termination {
   code: string
   message: string
+  hint?: string
 }
 
 // Settings the in-process code changed for the session before the server
@@ -69,27 +70,40 @@ export async function readSessionSettings(
   return rows
 }
 
-export interface ConnectionOptions {
-  backend: Backend
+// How a client's handshake ends.
+export type Admission =
+  | {
+      backend: Backend
 
+      /**
+       * Reported to the client through ParameterStatus during the handshake.
+       */
+      serverParameters: ReadonlyMap<string, string>
+
+      refusal?: undefined
+    }
+  | {
+      /**
+       * The error the handshake ends with instead of opening a session: there
+       * may be no backend to open one on.
+       */
+      refusal: Termination
+    }
+
+export interface ConnectionOptions {
   /**
    * Unique per connection. Reported as the backend process id and used to
    * namespace the connection's prepared statements.
    */
   processId: number
 
-  /**
-   * Reported to the client through ParameterStatus during the handshake.
-   */
-  serverParameters: ReadonlyMap<string, string>
-
-  /**
-   * When set, the handshake ends with this error instead of opening a session
-   * on the backend.
-   */
-  refusal?: Termination
-
   onError: (error: unknown) => void
+
+  /**
+   * Called once, when the client's startup message arrives: what is served
+   * then, rather than when the socket was accepted, decides the handshake.
+   */
+  admit: () => Admission
 }
 
 export interface Connection {
@@ -102,10 +116,9 @@ export interface Connection {
 
 // Emulates the startup handshake, then frames the client's messages and hands
 // them to the shared backend.
-export function serveConnection(
-  socket: Socket,
-  { backend, onError, processId, refusal, serverParameters }: ConnectionOptions,
-): Connection {
+export function serveConnection(socket: Socket, options: ConnectionOptions): Connection {
+  const { onError, processId } = options
+
   // Prepared statements live in the single backend session, so two clients
   // preparing the same name would collide. The prefix is short because
   // Postgres keys statements on the first 63 bytes of the name.
@@ -148,17 +161,19 @@ export function serveConnection(
 
   // Ends the connection at the server's initiative, the way Postgres does:
   // with a FATAL ErrorResponse.
-  const terminate = ({ code, message }: Termination) => {
+  const terminate = ({ code, hint, message }: Termination) => {
     release()
 
     if (socket.writable) {
-      socket.end(buildErrorResponse({ code, message, severity: 'FATAL' }), () => socket.destroy())
+      socket.end(buildErrorResponse({ code, hint, message, severity: 'FATAL' }), () =>
+        socket.destroy(),
+      )
     } else {
       socket.destroy()
     }
   }
 
-  const openSession = (): Session =>
+  const openSession = (backend: Backend): Session =>
     backend.openSession({
       onResponse: write,
       onError(error) {
@@ -205,9 +220,11 @@ export function serveConnection(
 
           break
 
-        case 'startup':
-          if (refusal) {
-            terminate(refusal)
+        case 'startup': {
+          const admission = options.admit()
+
+          if (admission.refusal) {
+            terminate(admission.refusal)
 
             break
           }
@@ -220,11 +237,13 @@ export function serveConnection(
 
           // The startup parameters (user, database, options) are not validated:
           // the server trusts every client and has one database.
-          session = openSession()
+          session = openSession(admission.backend)
           write(
             concatBytes(
               buildAuthenticationOk(),
-              ...Array.from(serverParameters, ([name, value]) => buildParameterStatus(name, value)),
+              ...Array.from(admission.serverParameters, ([name, value]) =>
+                buildParameterStatus(name, value),
+              ),
               buildBackendKeyData(processId, 0),
               buildReadyForQuery('I'),
             ),
@@ -232,6 +251,7 @@ export function serveConnection(
           phase = 'ready'
 
           break
+        }
       }
     }
   }

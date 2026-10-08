@@ -591,6 +591,24 @@ describe('createPGliteSocketServer lifecycle and options', () => {
     await expect(createClient(url).connect()).rejects.toMatchObject({ code: 'ECONNREFUSED' })
   })
 
+  it('starts over when listen() follows close() right away', async () => {
+    const server = await createServer().listen()
+    const closed = server.close()
+    const listening = server.listen()
+
+    await Promise.all([closed, listening])
+    expect(server.address).toBeDefined()
+    expect((await (await connectClient(server)).query('SELECT 1 AS v')).rows).toEqual([{ v: 1 }])
+
+    // And a close after that one tears the new start down too.
+    const closedAgain = server.close()
+    const relisten = server.listen()
+    const last = server.close()
+
+    await Promise.all([closedAgain, relisten, last])
+    expect(server.address).toBeUndefined()
+  })
+
   it('listens on the given host and port', async () => {
     const probe = await createServer().listen()
     const { port } = tcpAddress(probe)

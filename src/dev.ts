@@ -18,11 +18,13 @@ import type {
   PGliteInstanceInfo,
   PGliteQueryOutcome,
 } from './runtime/core/actions'
-import type { ServerSetup } from './server'
+import { RESET_ACTION } from './server'
+import type { RunningSocket, ServerSetup } from './server'
 import type {
-  PGliteProcessAction,
-  PGliteProcessActionContext,
+  PGliteSocketAction,
+  PGliteSocketActionContext,
   ResolvedModuleOptions,
+  SocketOptions,
 } from './types'
 
 /** The devtools tab's page, served from this process. */
@@ -50,19 +52,26 @@ export interface DevtoolsState {
     target?: ServerTarget
     /** The Nitro endpoint, under the app's base URL, when the target is `nitro`. */
     route: string
-    socket?: { url: string; connections: number }
     /** The socket's instance; with the `nitro` target the page asks Nitro. */
     instance?: PGliteInstanceInfo
+    /** Why the socket refuses clients: its instance could not be created. */
+    refusal?: string
   }
   client: { enabled: boolean; eager: boolean }
-  process: { actions: PGliteActionInfo[] }
+  /** The development socket, when it runs, with the actions that run next to it. */
+  socket?: {
+    url: string
+    connections: number
+    env: Record<string, string>
+    actions: PGliteActionInfo[]
+  }
 }
 
 /** The server-side functions the page calls through the devtools RPC. */
 export interface DevtoolsRpc {
   getState: () => DevtoolsState
-  /** Runs a `process` action, or a `server` one while the socket holds the instance. */
-  runAction: (side: 'server' | 'process', id: string) => Promise<PGliteActionOutcome>
+  /** Runs a `socket` action, or a `server` one while the socket holds the instance. */
+  runAction: (side: 'server' | 'socket', id: string) => Promise<PGliteActionOutcome>
   /** Runs SQL against the socket's instance. */
   query: (query: string) => Promise<PGliteQueryOutcome>
 }
@@ -85,25 +94,28 @@ export async function setupDev(
       : undefined
   const route = nuxt.options.app.baseURL.replace(/\/+$/, '') + SERVER_ROUTE
 
-  const processActions: PGliteProcessAction[] = [...options.devtools.actions]
-  const runner = createRunner({ nuxt, server, target, route, processActions })
+  const socketActions = collectSocketActions(socket, options.socket)
+  const runner = createRunner({ nuxt, socket, target, route, socketActions })
 
   nuxt.hook('modules:done', async () => {
-    await nuxt.callHook('pglite:devtools:actions', processActions)
-    // Fails the startup on ambiguous ids rather than the first run.
-    describeActions(processActions, 'process')
+    // Without the socket, other modules' actions would have nothing to reach.
+    if (socket) {
+      await nuxt.callHook('pglite:devtools:actions', socketActions)
+      // Fails the startup on ambiguous ids rather than the first run.
+      describeActions(socketActions, 'socket')
+    }
 
     // `nuxt dev`'s UI has no way for modules to add a shortcut, so the
     // picker is reachable through a hook. Server actions may live in Nitro,
-    // where they are only listed once it answers.
-    const hasActions =
-      processActions.length > 0 || target === 'nitro' || !!socket?.config.devtools?.actions?.length
+    // where they are only listed once it answers; with the socket, its reset
+    // is always there.
+    const hasActions = socketActions.length > 0 || target === 'nitro'
     if (runner.terminal.interactive && hasActions) {
       nuxt.hook('pglite:devtools:prompt', () => runner.prompt())
     }
   })
 
-  if (!options.devtools.enabled || !isDevtoolsEnabled(nuxt)) {
+  if (!options.devtools || !isDevtoolsEnabled(nuxt)) {
     return
   }
 
@@ -145,23 +157,12 @@ export async function setupDev(
   }
 
   const functions: DevtoolsRpc = {
-    getState: () => ({
-      server: {
-        enabled: options.server.enabled,
-        eager: options.server.eager,
-        target,
-        route,
-        socket: socket && { url: socket.server.url, connections: socket.server.connections },
-        instance: socket && describeInstance(socket.config, 'server'),
-      },
-      client: { enabled: options.client.enabled, eager: options.client.eager },
-      process: { actions: describeActions(processActions, 'process') },
-    }),
+    getState: () => devtoolsState({ options, target, route, socket, socketActions }),
     runAction: async (side, id) => {
       const local =
-        side === 'process'
-          ? describeActions(processActions, 'process')
-          : describeActions(socket?.config.devtools?.actions, 'server')
+        side === 'socket'
+          ? describeActions(socketActions, 'socket')
+          : describeActions(socket?.config.devtoolsActions, 'server')
       const action = local.find((candidate) => candidate.id === id)
       return action
         ? runner.run(action)
@@ -179,6 +180,70 @@ export async function setupDev(
   })
 }
 
+/** What the devtools tooling reads of the running socket. */
+type SocketView = Pick<RunningSocket, 'config' | 'dataDir' | 'env' | 'failure' | 'reset'> & {
+  server: Pick<RunningSocket['server'], 'url' | 'connections'>
+}
+
+/**
+ * The `socket` actions from `nuxt.config`, after the module's own reset, which
+ * needs the instance only the socket keeps in this process. None without the
+ * socket: they reach the database through it.
+ */
+export function collectSocketActions(
+  socket: Pick<SocketView, 'dataDir' | 'reset'> | undefined,
+  options: boolean | SocketOptions,
+): PGliteSocketAction[] {
+  if (!socket) {
+    return []
+  }
+  const reset: PGliteSocketAction = {
+    ...RESET_ACTION,
+    description:
+      "Closes the socket's instance, deletes its data directory and creates it again, running init. Socket only: an instance created by usePGlite() in Nitro is not affected.",
+    run: async () => {
+      await socket.reset()
+      return socket.dataDir ? `Recreated ${socket.dataDir}` : 'Recreated'
+    },
+  }
+  return [reset, ...(typeof options === 'object' ? (options.devtoolsActions ?? []) : [])]
+}
+
+interface StateSources {
+  options: Pick<ResolvedModuleOptions, 'server' | 'client'>
+  target: ServerTarget | undefined
+  route: string
+  socket: SocketView | undefined
+  socketActions: readonly PGliteSocketAction[]
+}
+
+/** What `getState` answers: read anew on every call, as the page polls it. */
+export function devtoolsState({
+  options,
+  target,
+  route,
+  socket,
+  socketActions,
+}: StateSources): DevtoolsState {
+  return {
+    server: {
+      enabled: options.server.enabled,
+      eager: options.server.eager,
+      target,
+      route,
+      instance: socket && describeInstance(socket.config, 'server'),
+      refusal: socket?.failure?.message,
+    },
+    client: { enabled: options.client.enabled, eager: options.client.eager },
+    socket: socket && {
+      url: socket.server.url,
+      connections: socket.server.connections,
+      env: socket.env,
+      actions: describeActions(socketActions, 'socket'),
+    },
+  }
+}
+
 /** Mirrors the rule Nuxt itself installs DevTools by. */
 function isDevtoolsEnabled(nuxt: Nuxt) {
   const { builder, devtools } = nuxt.options
@@ -194,19 +259,18 @@ function isDevtoolsEnabled(nuxt: Nuxt) {
 
 interface RunnerOptions {
   nuxt: Nuxt
-  server: ServerSetup
+  socket: ServerSetup['socket']
   target: ServerTarget | undefined
   route: string
-  processActions: PGliteProcessAction[]
+  socketActions: PGliteSocketAction[]
 }
 
 /**
- * Runs `server` and `process` actions from this process: directly where they
+ * Runs `server` and `socket` actions from this process: directly where they
  * live here, over HTTP where they live in Nitro. Each run is shown as a task
  * in the terminal, ending with its result.
  */
-function createRunner({ nuxt, server, target, route, processActions }: RunnerOptions) {
-  const { socket } = server
+function createRunner({ nuxt, socket, target, route, socketActions }: RunnerOptions) {
   const logger = useLogger('nuxt-pglite')
   const terminal = useTerminal()
 
@@ -232,20 +296,23 @@ function createRunner({ nuxt, server, target, route, processActions }: RunnerOpt
     return data
   }
 
-  const context: PGliteProcessActionContext = {
-    socketUrl: socket?.server.url,
-    dataDir: socket ? socket.dataDir : server.dataDir,
+  const context: PGliteSocketActionContext | undefined = socket && {
+    socketUrl: socket.server.url,
+    env: { ...socket.env },
+    dataDir: socket.dataDir,
     startSubprocess: (execaOptions, tabOptions) => startSubprocess(execaOptions, tabOptions, nuxt),
     terminal,
     logger,
   }
 
   async function execute({ side, id }: PGliteActionInfo): Promise<PGliteActionOutcome> {
-    if (side === 'process') {
-      return runAction(processActions, 'process', id, () => context)
+    if (side === 'socket') {
+      return context
+        ? runAction(socketActions, 'socket', id, () => context)
+        : { ok: false, error: 'The development socket is not running.' }
     }
     if (socket) {
-      return runAction(socket.config.devtools?.actions, 'server', id, () => ({ pg: socket.db }))
+      return runAction(socket.config.devtoolsActions, 'server', id, () => ({ pg: socket.use() }))
     }
     if (target === 'nitro') {
       return nitro<PGliteActionOutcome>({ action: id }).catch((error: unknown) => ({
@@ -267,11 +334,11 @@ function createRunner({ nuxt, server, target, route, processActions }: RunnerOpt
     return outcome
   }
 
-  /** The actions the terminal offers: the server's and the process's. */
+  /** The actions the terminal offers: the server's and the socket's. */
   async function list(): Promise<PGliteActionInfo[]> {
     let serverActions: PGliteActionInfo[] = []
     if (socket) {
-      serverActions = describeActions(socket.config.devtools?.actions, 'server')
+      serverActions = describeActions(socket.config.devtoolsActions, 'server')
     } else if (target === 'nitro') {
       serverActions = await nitro<PGliteInstanceInfo>().then(
         (info) => info.actions,
@@ -281,7 +348,7 @@ function createRunner({ nuxt, server, target, route, processActions }: RunnerOpt
         },
       )
     }
-    return [...serverActions, ...describeActions(processActions, 'process')]
+    return [...serverActions, ...describeActions(socketActions, 'socket')]
   }
 
   return {
@@ -292,7 +359,7 @@ function createRunner({ nuxt, server, target, route, processActions }: RunnerOpt
       if (!socket) {
         return Promise.resolve({ ok: false, error: 'The development socket is not running.' })
       }
-      return runQuery(() => socket.db, query)
+      return runQuery(() => socket.use(), query)
     },
 
     async prompt() {

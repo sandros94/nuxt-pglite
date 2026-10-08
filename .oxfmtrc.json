@@ -23,6 +23,7 @@
     "**/playwright-report/**",
     "**/test-results/**",
     "**/.pgdata/**",
-    "**/drizzle/**"
+    "**/drizzle/**",
+    "**/database/migrations/**"
   ]
 }

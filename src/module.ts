@@ -3,6 +3,7 @@ import type { NuxtModule } from '@nuxt/schema'
 import defu from 'defu'
 
 import { setupClient } from './client'
+import { setupDev } from './dev'
 import { setupServer } from './server'
 import type { ModuleOptions, ResolvedModuleOptions } from './types'
 
@@ -20,12 +21,9 @@ const DEFAULTS: ResolvedModuleOptions = {
     config: 'server/pglite.config',
     options: {},
     eager: false,
-    socket: false,
   },
-  devtools: {
-    enabled: true,
-    actions: [],
-  },
+  socket: false,
+  devtools: true,
 }
 
 // Annotated explicitly: without a bare `@nuxt/schema` reference in the type
@@ -48,7 +46,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     const runtimeDir = resolver.resolve('./runtime')
     nuxt.options.build.transpile.push(runtimeDir)
     // One alias per entry, for app code and for modules building on this one.
-    for (const entry of ['core', 'socket', 'server', 'client']) {
+    for (const entry of ['core', 'socket', 'migrations', 'server', 'client']) {
       nuxt.options.alias[`#pglite/${entry}`] = resolver.resolve(runtimeDir, entry)
     }
     // A disabled side keeps its alias, pointing at a stub with the same names.
@@ -58,12 +56,12 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       }
     }
 
-    const server = await setupServer(options.server, nuxt, resolver)
+    const server = await setupServer(options.server, options.socket, nuxt, resolver)
     await setupClient(options.client, nuxt, resolver)
 
-    // Imported on demand: a build never loads the tooling or its dependencies.
+    // Imported statically: a dynamic import would split this module into a
+    // shared chunk, from where `import.meta.url` no longer finds `runtime/`.
     if (nuxt.options.dev) {
-      const { setupDev } = await import('./dev')
       await setupDev(options, nuxt, resolver, server)
     }
   },

@@ -34,7 +34,7 @@ export default defineNuxtPlugin({
       describe: () => describeInstance(config, 'client'),
       // Only a run creates the worker, as `usePGlite()` would.
       run: (id) =>
-        runAction(config.devtools?.actions, 'client', id, async () => ({ pg: await pglite.use() })),
+        runAction(config.devtoolsActions, 'client', id, async () => ({ pg: await pglite.use() })),
       query: (sql) => runQuery(() => pglite.use(), sql),
     }
     Object.defineProperty(nuxtApp, BRIDGE, { value: bridge })

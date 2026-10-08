@@ -28,10 +28,10 @@ export interface PGliteProviderOptions<T extends Closable> {
   create: () => Promise<T>
 
   /** Runs once per created instance, before it is handed out. */
-  init?: (pg: T) => void | Promise<void>
+  init?: (pg: T) => unknown
 
   /** Runs before an instance is closed through the provider. */
-  dispose?: (pg: T) => void | Promise<void>
+  dispose?: (pg: T) => unknown
 
   /**
    * Tracks the asynchronous extent of `init`, so that `use()` called from

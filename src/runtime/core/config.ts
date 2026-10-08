@@ -19,22 +19,19 @@ export interface PGliteConfig<E extends Extensions = {}> extends PGliteOptions<E
    * Runs once per created instance, before it is handed out: the place for
    * `CREATE EXTENSION`, schema setup or seeding.
    */
-  init?: (pg: PGliteInstanceFor<PGliteConfig<E>>) => void | Promise<void>
+  init?: (pg: PGliteInstanceFor<PGliteConfig<E>>) => unknown
 
   /**
    * Runs before the instance is closed through its provider, e.g. on server
    * shutdown: the place to flush or checkpoint.
    */
-  dispose?: (pg: PGliteInstanceFor<PGliteConfig<E>>) => void | Promise<void>
+  dispose?: (pg: PGliteInstanceFor<PGliteConfig<E>>) => unknown
 
-  /** Development tooling for this instance; nothing of it runs in a build. */
-  devtools?: {
-    /**
-     * Operations listed in Nuxt DevTools and the terminal, run on demand
-     * against this instance.
-     */
-    actions?: PGliteServerAction<E>[]
-  }
+  /**
+   * Actions listed in Nuxt DevTools and the terminal picker, run on demand
+   * against this instance. Development tooling: nothing of it runs in a build.
+   */
+  devtoolsActions?: PGliteServerAction<E>[]
 }
 
 /** What a server action receives: the instance this config creates. */

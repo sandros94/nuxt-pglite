@@ -37,13 +37,25 @@
     "./socket": {
       "types": "./dist/runtime/socket/index.d.ts",
       "import": "./dist/runtime/socket/index.js"
+    },
+    "./migrations": {
+      "types": "./dist/runtime/migrations/index.d.ts",
+      "import": "./dist/runtime/migrations/index.js"
+    },
+    "./testing": {
+      "types": "./dist/runtime/testing/index.d.ts",
+      "import": "./dist/runtime/testing/index.js"
+    },
+    "./testing/vitest": {
+      "types": "./dist/runtime/testing/vitest.d.ts",
+      "import": "./dist/runtime/testing/vitest.js"
     }
   },
   "scripts": {
     "build": "nuxt-module-build build",
     "dev": "nuxt dev playground",
     "dev:build": "nuxt build playground",
-    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground && nuxt prepare test/fixtures/basic",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground && nuxt prepare test/fixtures/basic && nuxt prepare test/fixtures/testing",
     "lint": "oxlint . && oxfmt --check .",
     "fmt": "oxlint --fix . && oxfmt .",
     "prepack": "pnpm build",
@@ -59,6 +71,7 @@
     "@nuxt/devtools-kit": "npm:@nuxt/devtools-kit@^3.4.2",
     "@nuxt/kit": "npm:@nuxt/kit@^4.6.0",
     "defu": "npm:defu@^6.1.7",
+    "jiti": "^2.7.0",
     "mlly": "npm:mlly@^1.8.2",
     "pathe": "npm:pathe@^2.0.3"
   },
@@ -71,8 +84,8 @@
     "@playwright/test": "npm:@playwright/test@^1.63.0",
     "@types/pg": "^8.23.1",
     "@vue/test-utils": "npm:@vue/test-utils@^2.5.1",
-    "drizzle-kit": "^0.31.11",
-    "drizzle-orm": "^0.45.3",
+    "drizzle-kit": "npm:drizzle-kit@1.0.0-rc.4",
+    "drizzle-orm": "npm:drizzle-orm@1.0.0-rc.4",
     "happy-dom": "npm:happy-dom@^20.14.5",
     "nitro": "npm:nitro@^3.0.260903-beta",
     "nitropack": "npm:nitropack@^2.13.4",

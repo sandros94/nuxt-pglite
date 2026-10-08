@@ -16,6 +16,9 @@ export default defineConfig({
           name: 'unit',
           include: ['test/unit/**/*.{test,spec}.ts'],
           environment: 'node',
+          // Creating a PGlite instance compiles its wasm: a second or so alone,
+          // several while every file starts one at once.
+          testTimeout: 20_000,
         },
       },
       await defineVitestProject({

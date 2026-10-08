@@ -20,14 +20,14 @@ export interface PGliteClientConfig<
   /** Extensions loaded on the main thread, typed on the instance. */
   clientExtensions?: C
   /** Runs once in each tab that creates the instance, before it is handed out. */
-  init?: (pg: PGliteClientInstanceFor<PGliteClientConfig<E, C>>) => void | Promise<void>
+  init?: (pg: PGliteClientInstanceFor<PGliteClientConfig<E, C>>) => unknown
   /** Runs before the instance is closed through its provider. */
-  dispose?: (pg: PGliteClientInstanceFor<PGliteClientConfig<E, C>>) => void | Promise<void>
-  /** Development tooling for this instance; nothing of it runs in a build. */
-  devtools?: {
-    /** Operations listed in Nuxt DevTools, run on demand in the app's tab against the worker instance. */
-    actions?: PGliteClientAction<C>[]
-  }
+  dispose?: (pg: PGliteClientInstanceFor<PGliteClientConfig<E, C>>) => unknown
+  /**
+   * Actions listed in Nuxt DevTools, run on demand in the app's tab against
+   * the worker instance. Development tooling: nothing of it runs in a build.
+   */
+  devtoolsActions?: PGliteClientAction<C>[]
 }
 
 /** What a client action receives: the instance the app's tab holds. */

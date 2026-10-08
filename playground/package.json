@@ -7,15 +7,14 @@
     "build": "nuxt build",
     "generate": "nuxt generate",
     "typecheck": "nuxt typecheck --checker=golar",
-    "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:check": "drizzle-kit check",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@electric-sql/pglite": "npm:@electric-sql/pglite@^0.5.8",
     "@electric-sql/pglite-pgvector": "npm:@electric-sql/pglite-pgvector@^0.0.9",
-    "drizzle-orm": "npm:drizzle-orm@^0.45.3",
+    "drizzle-orm": "npm:drizzle-orm@1.0.0-rc.4",
     "nuxt": "catalog:",
     "nuxt-pglite": "workspace:*",
     "pg": "npm:pg@^8.23.1",
@@ -24,7 +23,7 @@
   "devDependencies": {
     "@golar/vue": "npm:@golar/vue@^0.1.10",
     "@types/pg": "npm:@types/pg@^8.23.1",
-    "drizzle-kit": "npm:drizzle-kit@^0.31.11",
+    "drizzle-kit": "npm:drizzle-kit@1.0.0-rc.4",
     "golar": "npm:golar@^0.1.10"
   }
 }

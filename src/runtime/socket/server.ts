@@ -1,6 +1,6 @@
 import { lstat, mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
-import { connect, createServer, type Server } from 'node:net'
+import { connect, createServer, type Server, type Socket } from 'node:net'
 
 import type { PGlite } from '@electric-sql/pglite'
 
@@ -9,6 +9,7 @@ import {
   readServerParameters,
   readSessionSettings,
   serveConnection,
+  type Admission,
   type Connection,
   type Termination,
 } from './connection'
@@ -89,6 +90,23 @@ export interface PGliteSocketServer {
   listen(): Promise<PGliteSocketServer>
 
   /**
+   * Serves `db` from now on, ending a refusal: the URL stays the same, so a
+   * recreated instance takes the place of the previous one. The clients of
+   * the previous instance are disconnected, rolling back their transactions;
+   * that instance is left open, as it belongs to the caller.
+   */
+  serve(db: PGlite): Promise<void>
+
+  /**
+   * Stops serving the instance and refuses every new client until `serve()`:
+   * its handshake ends with a FATAL ErrorResponse, SQLSTATE 57P03
+   * (`cannot_connect_now`), the message `PGlite is not ready: <reason>` and
+   * `hint` when given. Connected clients are disconnected, rolling back their
+   * transactions; the instance is left open, for the caller to close.
+   */
+  refuse(reason: Error, options?: { hint?: string }): Promise<void>
+
+  /**
    * Destroys the client sockets, rolling back their open transactions, stops
    * listening and waits for the message being executed. The PGlite instance
    * is left open: it belongs to the caller.
@@ -99,23 +117,39 @@ export interface PGliteSocketServer {
 // What Postgres reports once `max_connections` is reached.
 const TOO_MANY_CLIENTS: Termination = { code: '53300', message: 'sorry, too many clients already' }
 
+// What Postgres reports while it starts up or recovers: the closest standard
+// code for an instance that cannot be served right now.
+const notReady = (reason: string, hint?: string): Termination => ({
+  code: '57P03',
+  message: `PGlite is not ready: ${reason}`,
+  hint,
+})
+
 // Wildcard addresses accept connections but are not a destination on every
 // platform, so the URL points at the loopback interface instead.
 const CONNECTABLE_HOSTS: Record<string, string> = { '0.0.0.0': '127.0.0.1', '::': '::1' }
 
 interface Listening {
   server: Server
-  backend: Backend
   address: { host: string; port: number } | { path: string; port: number }
+}
+
+// The instance being served, with what its clients share.
+interface Served {
+  backend: Backend
+  serverParameters: Map<string, string>
+  connections: Set<Connection>
   unsubscribe: () => void
 }
 
 /**
  * Creates a Postgres wire-protocol server in front of `db`. The server neither
- * opens nor closes `db`.
+ * opens nor closes `db`. With `null` it refuses clients (SQLSTATE 57P03) until
+ * `serve()` hands it an instance, e.g. one whose creation failed and is
+ * retried.
  */
 export function createPGliteSocketServer(
-  db: PGlite,
+  db: PGlite | null,
   options: PGliteSocketServerOptions = {},
 ): PGliteSocketServer {
   const {
@@ -133,9 +167,25 @@ export function createPGliteSocketServer(
   let admitted = 0
   let nextProcessId = 1
 
+  // What to serve, kept while not listening; exactly one of them is set.
+  let instance = db ?? undefined
+  let refusal = db ? undefined : notReady('no instance to serve yet')
+
   let current: Listening | undefined
+  let served: Served | undefined
   let listening: Promise<PGliteSocketServer> | undefined
   let closing: Promise<void> | undefined
+
+  // Starting, stopping and switching instances run one at a time: each reads
+  // and replaces what the previous one left.
+  let queue: Promise<unknown> = Promise.resolve()
+  const exclusive = <T>(task: () => Promise<T>): Promise<T> => {
+    const run = queue.then(task)
+
+    queue = run.catch(() => {})
+
+    return run
+  }
 
   const onError = (error: unknown) => {
     if (error instanceof Error && 'code' in error && error.code === 'ECONNRESET') {
@@ -145,38 +195,90 @@ export function createPGliteSocketServer(
     logger('Unexpected connection error:', error)
   }
 
-  const start = async (): Promise<PGliteSocketServer> => {
+  const attach = async (target: PGlite): Promise<Served> => {
     const [serverParameters, sessionSettings] = await Promise.all([
-      readServerParameters(db),
-      readSessionSettings(db),
+      readServerParameters(target),
+      readSessionSettings(target),
     ])
-    const backend = new Backend(db, { idleInTransactionTimeout, sessionSettings })
+    const backend = new Backend(target, { idleInTransactionTimeout, sessionSettings })
 
-    const server = createServer((socket) => {
-      const refused = admitted >= maxConnections
+    return {
+      backend,
+      serverParameters,
+      connections: new Set(),
+      unsubscribe: routeNotifications(target, backend),
+    }
+  }
 
-      if (!refused) {
-        admitted++
+  const detach = async ({ backend, connections: clients, unsubscribe }: Served) => {
+    unsubscribe()
+
+    // Destroying releases the sessions first, so that the backend still
+    // cleans up after them while it closes.
+    const socketsClosed = Array.from(clients, (connection) => connection.destroy())
+
+    await Promise.all([backend.close(), ...socketsClosed])
+  }
+
+  // A client is admitted when its startup message arrives, not when its
+  // socket is accepted: one accepted during a refusal or a switch is served
+  // if an instance is by then. Until then it belongs to no instance, so a
+  // switch leaves it alone.
+  const accept = (socket: Socket) => {
+    let target: Served | undefined
+
+    // How the handshake ends: in a session on the served instance, or in an
+    // error when there is none or no room for one more client.
+    const admit = (): Admission => {
+      if (!served) {
+        return { refusal: refusal ?? notReady('switching instances') }
       }
 
-      const connection = serveConnection(socket, {
-        backend,
-        onError,
-        processId: nextProcessId++,
-        refusal: refused ? TOO_MANY_CLIENTS : undefined,
-        serverParameters,
-      })
+      if (admitted >= maxConnections) {
+        return { refusal: TOO_MANY_CLIENTS }
+      }
 
-      connections.add(connection)
+      target = served
+      target.connections.add(connection)
+      admitted++
 
-      socket.once('close', () => {
-        connections.delete(connection)
+      return { backend: target.backend, serverParameters: target.serverParameters }
+    }
 
-        if (!refused) {
-          admitted--
-        }
-      })
+    const connection = serveConnection(socket, { admit, onError, processId: nextProcessId++ })
+
+    connections.add(connection)
+
+    socket.once('close', () => {
+      connections.delete(connection)
+
+      if (target) {
+        target.connections.delete(connection)
+        admitted--
+      }
     })
+  }
+
+  const start = async (): Promise<PGliteSocketServer> => {
+    const target = instance && (await attach(instance))
+
+    try {
+      current = await bind()
+    } catch (error) {
+      if (target) {
+        await detach(target)
+      }
+
+      throw error
+    }
+
+    served = target
+
+    return socketServer
+  }
+
+  const bind = async (): Promise<Listening> => {
+    const server = createServer(accept)
 
     // Postgres clients given a directory as host connect to this file in it.
     const socketPort = port || 5432
@@ -212,42 +314,35 @@ export function createPGliteSocketServer(
       throw new Error('The PGlite socket server stopped listening while starting.')
     }
 
-    current = {
+    return {
       server,
-      backend,
       address:
         typeof address === 'string'
           ? { path: path ?? address, port: socketPort }
           : { host: address.address, port: address.port },
-      unsubscribe: routeNotifications(db, backend),
     }
-
-    return socketServer
   }
 
   const stop = async () => {
-    await listening?.catch(() => {})
-
     const stopping = current
+    const detaching = served
 
     current = undefined
-    listening = undefined
+    served = undefined
 
     if (!stopping) {
       return
     }
 
-    const { backend, server, unsubscribe } = stopping
     const serverClosed = new Promise<void>((resolve, reject) => {
-      server.close((error) => (error ? reject(error) : resolve()))
+      stopping.server.close((error) => (error ? reject(error) : resolve()))
     })
 
-    unsubscribe()
-
-    // Long-lived clients (pools, LISTEN) would otherwise keep the server open.
+    // Long-lived clients (pools, LISTEN) would otherwise keep the server
+    // open; refused clients are not attached to an instance.
     const socketsClosed = Array.from(connections, (connection) => connection.destroy())
 
-    await Promise.all([serverClosed, backend.close(), ...socketsClosed])
+    await Promise.all([serverClosed, detaching && detach(detaching), ...socketsClosed])
   }
 
   const socketServer: PGliteSocketServer = {
@@ -281,21 +376,94 @@ export function createPGliteSocketServer(
     listen() {
       // A close in progress finishes first: starting over its teardown would
       // hand out a server about to stop.
-      listening ??= (closing ?? Promise.resolve()).then(start).catch((error: unknown) => {
-        listening = undefined
+      if (listening) {
+        return listening
+      }
 
-        throw error
+      const run: Promise<PGliteSocketServer> = (closing ?? Promise.resolve())
+        .then(() => exclusive(start))
+        .catch((error: unknown) => {
+          // Unless a close has let go of it already, and a new start began.
+          if (listening === run) {
+            listening = undefined
+          }
+
+          throw error
+        })
+
+      listening = run
+
+      return run
+    },
+
+    serve(target) {
+      return exclusive(async () => {
+        const previous = served
+
+        // Clients arriving during the switch are refused rather than queued
+        // on a backend about to close.
+        served = undefined
+        instance = undefined
+        refusal = undefined
+
+        if (previous) {
+          await detach(previous)
+        }
+
+        if (current) {
+          try {
+            served = await attach(target)
+          } catch (error) {
+            refusal = notReady(error instanceof Error ? error.message : String(error))
+
+            throw error
+          }
+        }
+
+        instance = target
       })
+    },
 
-      return listening
+    refuse(reason, { hint } = {}) {
+      return exclusive(async () => {
+        const previous = served
+
+        served = undefined
+        instance = undefined
+        refusal = notReady(reason.message, hint)
+
+        if (previous) {
+          await detach(previous)
+        }
+      })
     },
 
     close() {
-      closing ??= stop().finally(() => {
-        closing = undefined
-      })
+      const started = listening
 
-      return closing
+      // Cleared now rather than once stopped: a `listen()` right after this
+      // call starts over once the close is done, instead of handing back the
+      // server being closed.
+      listening = undefined
+
+      // A close in progress covers everything but a start queued after it.
+      if (closing && !started) {
+        return closing
+      }
+
+      // A start in progress finishes first, so that it is torn down too.
+      const run: Promise<void> = (started ?? Promise.resolve())
+        .catch(() => {})
+        .then(() => exclusive(stop))
+        .finally(() => {
+          if (closing === run) {
+            closing = undefined
+          }
+        })
+
+      closing = run
+
+      return run
     },
   }
 

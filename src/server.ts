@@ -14,13 +14,16 @@ import {
 import type { Resolver } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 import defu from 'defu'
+import { createJiti } from 'jiti'
 import type { PGlite } from '@electric-sql/pglite'
 
-import { definePGliteConfig } from './runtime/core/config'
 import type { PGliteConfig } from './runtime/core/config'
-import { assertConfigKind, resolveEnvConfig } from './runtime/core/kind'
-import { definePGliteClientConfig } from './runtime/client/config'
+import { resolveEnvConfig } from './runtime/core/kind'
+import { importServerConfig } from './runtime/core/load'
 import { createPGliteSocketServer } from './runtime/socket/server'
+import { resolveSocketEnv } from './runtime/socket/env'
+import { createInstance } from './runtime/core/instance'
+import { resetInstance } from './instance'
 import { corePathForTypes, importedPackages, withoutExtension } from './utils/imports'
 import type { PGliteSocketServer } from './runtime/socket/server'
 import type { ServerOptions, SocketOptions } from './types'
@@ -36,12 +39,15 @@ function isPathDataDir(dataDir: string) {
 export interface ServerSetup {
   /** The development socket and the instance it serves, when it runs. */
   socket?: RunningSocket
-  /** The `nuxt.config` data directory, resolved; the config file may override it at runtime. */
-  dataDir?: string
 }
 
+/**
+ * Registers the server side and, in `nuxt dev`, starts the socket: it serves
+ * the same config file, so it is set up here even while the side is disabled.
+ */
 export async function setupServer(
   options: ServerOptions,
+  socketOptions: boolean | SocketOptions,
   nuxt: Nuxt,
   resolver: Resolver,
 ): Promise<ServerSetup> {
@@ -62,9 +68,9 @@ export async function setupServer(
     // The socket's instance lives in this process, so a config change needs a restart.
     nuxt.options.watch.push(configPath)
   }
-  if (configPath && !options.enabled && !options.socket) {
+  if (configPath && !options.enabled && !socketOptions) {
     logger.warn(
-      `${relative(nuxt.options.rootDir, configPath)} found, but \`pglite.server\` is disabled and has no socket: it is not used.`,
+      `${relative(nuxt.options.rootDir, configPath)} found, but \`pglite.server\` and \`pglite.socket\` are disabled: it is not used.`,
     )
   }
 
@@ -78,8 +84,14 @@ export async function setupServer(
   // database even when the server side (`usePGlite()`, PGlite in the bundle)
   // is disabled for the build.
   const socket =
-    nuxt.options.dev && options.socket
-      ? await startSocket(options, nuxt, defaults, configPath, logger)
+    nuxt.options.dev && socketOptions
+      ? await startSocket(
+          socketOptions === true ? {} : socketOptions,
+          nuxt,
+          defaults,
+          configPath,
+          logger,
+        )
       : undefined
 
   addServerTypes(configPath, resolver)
@@ -96,7 +108,7 @@ export async function setupServer(
     },
   ])
   if (!options.enabled) {
-    return { socket, dataDir: defaults.dataDir }
+    return { socket }
   }
 
   // A full file path, so that any bundler resolves the generated import.
@@ -134,7 +146,7 @@ export async function setupServer(
     nitro3: resolver.resolve('./runtime/server/plugins/pglite.nitro3'),
   })
 
-  return { socket, dataDir: defaults.dataDir }
+  return { socket }
 }
 
 function nuxtEnv(nuxt: Nuxt) {
@@ -165,107 +177,229 @@ function addServerTypes(configPath: string | undefined, resolver: Resolver) {
   )
 }
 
-/**
- * Loads the config file outside the server bundle, where `definePGliteServerConfig`
- * is not auto-imported: it is provided as a global for the duration of the
- * import, so that a file written for the server works here unchanged.
- */
-async function loadConfig(configPath: string): Promise<PGliteConfig> {
-  // Both helpers, so that a file using the wrong one reaches the kind check
-  // and gets a pointer instead of a ReferenceError.
-  const helpers: Record<string, unknown> = {
-    definePGliteServerConfig: definePGliteConfig,
-    definePGliteClientConfig,
-  }
-  const global: Record<string, unknown> = globalThis
-  const provided = Object.keys(helpers).filter((name) => !(name in global))
-  for (const name of provided) {
-    global[name] = helpers[name]
-  }
-  try {
-    const { default: config } = await importModule<{ default: PGliteConfig }>(configPath)
-    return assertConfigKind(config, 'server', configPath)
-  } finally {
-    for (const name of provided) {
-      delete global[name]
-    }
-  }
-}
+/** The built-in `socket` action that recreates the socket's instance; registered in `src/dev.ts`. */
+export const RESET_ACTION = { id: 'reset-database', label: 'Reset database' } as const
 
-interface RunningSocket {
+const REFUSAL_HINT = `Restart \`nuxt dev\` once the cause is fixed, or run the "${RESET_ACTION.label}" action (Nuxt DevTools, PGlite tab) to recreate the database from scratch.`
+
+export interface RunningSocket {
   server: PGliteSocketServer
-  /** The served instance, which lives in this process. */
-  db: PGlite
-  /** The resolved server config the instance was created from. */
+  /** The resolved server config the instance is created from. */
   config: PGliteConfig
   dataDir: string | undefined
+  /** The variables the socket exported, with their values. */
+  env: Record<string, string>
+  /**
+   * Why the socket refuses clients: creating the instance, or its `init`,
+   * failed. Cleared by a successful reset.
+   */
+  readonly failure: Error | undefined
+  /** The served instance, which lives in this process; throws while there is none. */
+  use(): PGlite
+  /**
+   * Closes the instance, removes its data directory and creates it again,
+   * `init` included, behind the same URL. Connected clients are disconnected.
+   */
+  reset(): Promise<void>
 }
 
 /**
  * Serves PGlite from the Nuxt process rather than the Nitro one: it survives
- * server reloads and is reachable while the app builds or prerenders.
+ * server reloads and is reachable while the app builds or prerenders. A
+ * failure to create the instance does not stop the dev server: the socket
+ * comes up anyway and refuses clients with the reason, until a reset.
  */
 async function startSocket(
-  options: ServerOptions,
+  socketOptions: SocketOptions,
   nuxt: Nuxt,
   defaults: ServerOptions['options'],
   configPath: string | undefined,
   logger: ReturnType<typeof useLogger>,
 ): Promise<RunningSocket> {
-  const socketOptions: SocketOptions = typeof options.socket === 'object' ? options.socket : {}
-  const { env = 'DATABASE_URL', ...serverOptions } = socketOptions
+  // The actions run next to the socket rather than in it (`src/dev.ts`).
+  const { env, provider, devtoolsActions: _actions, ...serverOptions } = socketOptions
 
-  const userConfig = configPath ? await loadConfig(configPath) : {}
+  // Through jiti rather than a bare import: the app's aliases (`~~`,
+  // `#pglite/*`, …) resolve in the file as they do in the server bundle.
+  // Uncached, as c12 does: a restart after a config edit runs in this same
+  // process, where a cached module would hand back the previous config.
+  const jiti = createJiti(nuxt.options.rootDir, {
+    alias: nuxt.options.alias,
+    moduleCache: false,
+  })
+  const userConfig = configPath
+    ? await importServerConfig(configPath, (path) => jiti.import(path))
+    : {}
   const config: PGliteConfig = resolveEnvConfig({ ...defaults, ...userConfig }, nuxtEnv(nuxt))
 
   // Rendered by the `nuxt dev` UI when it runs, logged otherwise; the error
-  // of a failed start propagates and is reported by Nuxt.
+  // of a socket that cannot listen propagates and is reported by Nuxt.
   const task = useTerminal().startTask('Starting PGlite…')
-  const { db, server } = await serve(config, serverOptions, nuxt, logger).catch(
-    (error: unknown) => {
-      task.stop('PGlite socket could not start', 'failure')
-      throw error
-    },
-  )
-
-  nuxt.options.runtimeConfig.pglite.url = server.url
-  if (env && !process.env[env]) {
-    process.env[env] = server.url
-    task.stop(`PGlite socket listening at ${server.url} (${env})`)
-  } else {
-    task.stop(`PGlite socket listening at ${server.url}`)
-  }
-
-  nuxt.hook('close', async () => {
-    await server.close()
-    await db.close()
-  })
-
-  return { server, db, config, dataDir: config.dataDir }
-}
-
-async function serve(
-  config: PGliteConfig,
-  serverOptions: Omit<SocketOptions, 'env'>,
-  nuxt: Nuxt,
-  logger: ReturnType<typeof useLogger>,
-) {
   const { PGlite } = await importModule<typeof import('@electric-sql/pglite')>(
     '@electric-sql/pglite',
-    {
-      url: pathToFileURL(nuxt.options.rootDir + '/'),
+    { url: pathToFileURL(nuxt.options.rootDir + '/') },
+  )
+
+  let db: PGlite | undefined
+  let failure: Error | undefined
+  await createInstance(PGlite, config).then(
+    (created) => {
+      db = created
+    },
+    (error: unknown) => {
+      failure = asError(error)
     },
   )
 
-  const db = await PGlite.create(config)
-  await config.init?.(db)
-  const server = await createPGliteSocketServer(db, {
+  const server = createPGliteSocketServer(db ?? null, {
     ...serverOptions,
     path:
       serverOptions.path && !isAbsolute(serverOptions.path)
         ? resolve(nuxt.options.rootDir, serverOptions.path)
         : serverOptions.path,
     logger: (...message: unknown[]) => logger.warn(message.map(String).join(' ')),
-  }).listen()
-  return { db, server }
+  })
+  let variables: Record<string, string>
+  try {
+    if (failure) {
+      await server.refuse(failure, { hint: REFUSAL_HINT })
+    }
+    await server.listen()
+    // Inside the try: an `env` function may throw, once the socket listens.
+    variables = resolveSocketEnv({ env, provider }, server.url)
+  } catch (error) {
+    task.stop('PGlite socket could not start', 'failure')
+    // The socket first: closing it waits for the message running on `db`.
+    await server.close()
+    await db?.close()
+    throw error
+  }
+
+  nuxt.options.runtimeConfig.pglite.url = server.url
+  const exported = exportEnv(variables, nuxt, logger)
+  const names = Object.keys(exported)
+  const listening = `PGlite socket ${failure ? 'refusing clients' : 'listening'} at ${server.url}${names.length ? ` (${names.join(', ')})` : ''}`
+  if (failure) {
+    task.stop(`${listening}: the instance could not be created`, 'failure')
+    logger.error('PGlite could not be created; the socket refuses clients until a reset.', failure)
+  } else {
+    task.stop(listening)
+  }
+
+  // Resets run one at a time; shutdown waits for the one in progress and
+  // refuses new ones, which would create an instance nothing closes.
+  let resetting: Promise<void> = Promise.resolve()
+  let closed = false
+
+  async function reset() {
+    let released = false
+    let created: PGlite | undefined
+    try {
+      created = await resetInstance(PGlite, config, async () => {
+        released = true
+        await server.refuse(new Error('the database is being reset'))
+        const previous = db
+        db = undefined
+        await previous?.close()
+      })
+      db = created
+      await server.serve(created)
+    } catch (error) {
+      // Refused before anything was released: the instance keeps serving.
+      if (released) {
+        failure = asError(error)
+        // A new instance the socket could not serve is closed, rather than
+        // left holding the data directory for `use()` alone.
+        db = undefined
+        await Promise.all([server.refuse(failure, { hint: REFUSAL_HINT }), created?.close()])
+      }
+      throw error
+    }
+    failure = undefined
+  }
+
+  nuxt.hook('close', async () => {
+    closed = true
+    await resetting.catch(() => {})
+    await server.close()
+    await db?.close()
+  })
+
+  return {
+    server,
+    config,
+    dataDir: config.dataDir,
+    env: exported,
+    get failure() {
+      return failure
+    },
+    use() {
+      if (!db) {
+        throw new Error(`PGlite is not ready: ${failure?.message ?? 'the database is being reset'}`)
+      }
+      return db
+    },
+    reset() {
+      if (closed) {
+        return Promise.reject(new Error('PGlite cannot be reset: the dev server is closing.'))
+      }
+      const run = resetting.catch(() => {}).then(reset)
+      resetting = run
+      return run
+    },
+  }
+}
+
+/**
+ * Sets each variable that is still unset (an empty value counts as set), and
+ * returns those it set. Another module may set the same ones afterwards, e.g.
+ * a database emulation in `nitro:init`: they are checked once Nitro is set up
+ * and again once the dev server listens, with a warning for each that no
+ * longer reaches the socket.
+ * Those still holding the socket's values are unset on close, so that a
+ * restart exports its own.
+ */
+function exportEnv(
+  variables: Record<string, string>,
+  nuxt: Nuxt,
+  logger: ReturnType<typeof useLogger>,
+): Record<string, string> {
+  const exported: Record<string, string> = {}
+  for (const [name, value] of Object.entries(variables)) {
+    if (process.env[name] === undefined) {
+      process.env[name] = value
+      exported[name] = value
+    }
+  }
+
+  const warned = new Set<string>()
+  const check = () => {
+    for (const [name, value] of Object.entries(variables)) {
+      if (process.env[name] === value || warned.has(name)) {
+        continue
+      }
+      warned.add(name)
+      logger.warn(
+        name in exported
+          ? `\`${name}\` was overwritten after nuxt-pglite set it, so code reading it does not reach the PGlite socket. If another module emulates a database, disable its emulation.`
+          : `\`${name}\` was already set, so it is left as is and does not reach the PGlite socket. Unset it, or disable the database emulation that sets it, to use PGlite.`,
+      )
+    }
+  }
+  nuxt.hook('ready', check)
+  nuxt.hook('listen', check)
+
+  nuxt.hook('close', () => {
+    for (const [name, value] of Object.entries(exported)) {
+      if (process.env[name] === value) {
+        delete process.env[name]
+      }
+    }
+  })
+
+  return exported
+}
+
+function asError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error))
 }
