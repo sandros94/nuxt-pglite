@@ -9,8 +9,10 @@ import { importServerConfig } from '../core/load'
 /** How the module resolves `$development` / `$production` / `$test` while testing: `$test` applies. */
 export const TEST_ENV = { dev: false, test: true }
 
-// The extensions `pglite.server.config` may leave out, in the order tried.
-const EXTENSIONS = ['', '.ts', '.mts', '.js', '.mjs']
+// The extensions `pglite.server.config` may leave out, in the order the module
+// tries them (Nuxt's default `extensions`), after the path as given. Not
+// imported from `@nuxt/kit`, which this entry does not depend on.
+const EXTENSIONS = ['', '.mjs', '.js', '.cjs', '.mts', '.ts', '.cts', '.tsx', '.jsx']
 
 export interface LoadPGliteConfigOptions {
   /**
@@ -32,7 +34,9 @@ export async function loadPGliteConfig(
   { alias }: LoadPGliteConfigOptions = {},
 ): Promise<PGliteConfig> {
   const file = await findConfigFile(isAbsolute(path) ? path : resolve(process.cwd(), path))
-  const jiti = createJiti(process.cwd(), { alias })
+  // Uncached: a file edited between two loads in the same process (a watch
+  // run) is read again rather than handed back as it was.
+  const jiti = createJiti(process.cwd(), { alias, moduleCache: false })
   const config = await importServerConfig(file, (target) => jiti.import(target))
   return resolveEnvConfig(config, TEST_ENV)
 }

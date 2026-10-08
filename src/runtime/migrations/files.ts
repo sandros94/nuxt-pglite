@@ -54,6 +54,9 @@ export async function readMigrations(dir: string): Promise<MigrationFile[]> {
     migrations.set(migration.name, migration)
   }
 
+  // As Netlify's own dev applier (`@netlify/database-dev`) sorts them, so that
+  // both apply in the same order; names are expected to start with a
+  // timestamp, which sorts alike in every locale.
   return [...migrations.values()].toSorted((a, b) => a.name.localeCompare(b.name))
 }
 

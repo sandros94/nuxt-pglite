@@ -27,6 +27,12 @@ export interface TestDatabaseOptions<E extends Extensions = {}> {
   config?: (PGliteConfig<E> & EnvOverrides<PGliteConfig<E>>) | string
 
   /**
+   * Import aliases a `config` path may use (`~~`, `#pglite/*`, …), name to
+   * absolute path, as `nuxt.options.alias` holds them; see `loadPGliteConfig`.
+   */
+  alias?: Record<string, string>
+
+  /**
    * Overrides `config.dataDir`: in memory by default, so that a suite never
    * touches the app's data.
    * @default 'memory://'
@@ -83,15 +89,20 @@ export function createTestDatabase<E extends Extensions = {}>(
 // `E` only types the instance handed out; the implementation works on the
 // config as PGlite and the socket see it.
 export async function createTestDatabase(options: TestDatabaseOptions = {}): Promise<TestDatabase> {
-  const { config: input = {}, dataDir = 'memory://', socket = false } = options
+  const { alias, config: input = {}, dataDir = 'memory://', socket = false } = options
   const { exportEnv = Boolean(socket) } = options
 
   const [{ PGlite }, loaded] = await Promise.all([
     // Deferred, like the provider's: `@electric-sql/pglite` is an optional peer.
     import('@electric-sql/pglite'),
-    typeof input === 'string' ? loadPGliteConfig(input) : resolveEnvConfig(input, TEST_ENV),
+    typeof input === 'string'
+      ? loadPGliteConfig(input, { alias })
+      : resolveEnvConfig(input, TEST_ENV),
   ])
-  const config: PGliteConfig = { ...loaded, dataDir }
+  // A custom `fs` holds the app's own data directory and takes the place of
+  // `dataDir`: the test database would write to the app's data.
+  const { fs: _fs, ...rest } = loaded
+  const config: PGliteConfig = { ...rest, dataDir }
   const pg = await createInstance(PGlite, config)
 
   return openDatabase(PGlite, config, pg, { socket, exportEnv, dispose: true })
@@ -105,7 +116,7 @@ interface OpenOptions {
   onClose?: () => void
 }
 
-/** Serves `pg` as asked and wraps it; `pg` is closed if serving fails. */
+/** Serves `pg` as asked and wraps it; `pg` and the socket are closed if serving fails. */
 async function openDatabase(
   PGlite: PGliteClass,
   config: PGliteConfig,
@@ -116,13 +127,18 @@ async function openDatabase(
   let env: Record<string, string> = {}
   if (socket) {
     const { env: names, provider, ...serverOptions } = socket === true ? {} : socket
+    const created = createPGliteSocketServer(pg, serverOptions)
     try {
-      server = await createPGliteSocketServer(pg, serverOptions).listen()
+      await created.listen()
+      // Inside the try: an `env` function may throw.
+      env = resolveSocketEnv({ env: names, provider }, created.url)
     } catch (error) {
+      // The socket first: closing it waits for the message running on `pg`.
+      await created.close()
       await pg.close()
       throw error
     }
-    env = resolveSocketEnv({ env: names, provider }, server.url)
+    server = created
   }
   const exported = exportEnv ? setUnsetVariables(env) : {}
 
@@ -204,11 +220,12 @@ function inheritSocket(socket: boolean | TestSocketOptions): boolean | TestSocke
 /**
  * Sets each variable that is still unset, as the development socket does, so
  * that a database configured in the environment wins; returns those it set.
+ * An empty value counts as set: it was set on purpose.
  */
 function setUnsetVariables(variables: Record<string, string>): Record<string, string> {
   const exported: Record<string, string> = {}
   for (const [name, value] of Object.entries(variables)) {
-    if (!process.env[name]) {
+    if (process.env[name] === undefined) {
       process.env[name] = value
       exported[name] = value
     }

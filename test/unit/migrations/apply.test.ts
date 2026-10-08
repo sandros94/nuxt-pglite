@@ -83,6 +83,16 @@ describe('applyMigrations', () => {
     expect(logger.warn).not.toHaveBeenCalled()
   })
 
+  it('lets concurrent appliers take turns, each migration applied once', async () => {
+    const dir = await createMigrationsDir({ '0001_users.sql': USERS, '0002_posts.sql': POSTS })
+
+    const results = await Promise.all([applyMigrations(db, dir), applyMigrations(db, dir)])
+
+    // Both read the same pending list; whichever comes second skips them.
+    expect(results.flat().toSorted()).toEqual(['0001_users', '0002_posts'])
+    expect(await tracked()).toEqual(['0001_users', '0002_posts'])
+  })
+
   describe('target', () => {
     const files = {
       '0001_users.sql': USERS,
@@ -226,13 +236,12 @@ describe('applyMigrations', () => {
   })
 
   describe('table', () => {
-    it('quotes a custom tracking table', async () => {
+    it('uses a custom tracking table', async () => {
       const dir = await createMigrationsDir({ '0001_users.sql': USERS })
-      const exec = vi.spyOn(db, 'exec')
 
       await applyMigrations(db, dir, { table: 'app.migrations' })
 
-      expect(exec.mock.calls[0]?.[0]).toContain('CREATE TABLE IF NOT EXISTS "app"."migrations"')
+      expect(await tables('app')).toEqual(['migrations'])
       expect(await tracked('app.migrations')).toEqual(['0001_users'])
       expect(await tables('netlify')).toEqual([])
     })
@@ -249,19 +258,26 @@ describe('applyMigrations', () => {
       'refuses %j before touching the database',
       async (table) => {
         const dir = await createMigrationsDir({ '0001_users.sql': USERS })
-        const exec = vi.spyOn(db, 'exec')
+        const [exec, transaction] = [vi.spyOn(db, 'exec'), vi.spyOn(db, 'transaction')]
 
         await expect(applyMigrations(db, dir, { table })).rejects.toThrow('Invalid `table`')
         expect(exec).not.toHaveBeenCalled()
+        expect(transaction).not.toHaveBeenCalled()
       },
     )
 
-    it('refuses the tracking table as digests table', async () => {
+    it.each([
+      { table: 'app.migrations', digests: 'app.migrations' },
+      // The same table, spelled differently.
+      { table: 'public.migrations', digests: 'migrations' },
+    ])('refuses the tracking table as digests table: %j', async (options) => {
       const dir = await createMigrationsDir({ '0001_users.sql': USERS })
 
-      await expect(
-        applyMigrations(db, dir, { table: 'app.migrations', digests: 'app.migrations' }),
-      ).rejects.toThrow('The digests table cannot be the tracking table')
+      await expect(applyMigrations(db, dir, options)).rejects.toThrow(
+        'The digests table cannot be the tracking table',
+      )
+      // Nothing was created, nothing ran.
+      expect(await tables('public')).toEqual([])
     })
   })
 })

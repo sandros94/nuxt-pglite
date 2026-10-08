@@ -9,8 +9,8 @@ import {
   readServerParameters,
   readSessionSettings,
   serveConnection,
+  type Admission,
   type Connection,
-  type ConnectionOptions,
   type Termination,
 } from './connection'
 import { routeNotifications } from './notifications'
@@ -220,43 +220,40 @@ export function createPGliteSocketServer(
     await Promise.all([backend.close(), ...socketsClosed])
   }
 
-  // How a new client's handshake ends: in a session on the served instance,
-  // or in an error when there is none or no room for one more client.
-  const admit = (target: Served | undefined, processId: number): ConnectionOptions => {
-    if (!target) {
-      return { onError, processId, refusal: refusal ?? notReady('switching instances') }
-    }
-
-    if (admitted >= maxConnections) {
-      return { onError, processId, refusal: TOO_MANY_CLIENTS }
-    }
-
-    return {
-      backend: target.backend,
-      onError,
-      processId,
-      serverParameters: target.serverParameters,
-    }
-  }
-
+  // A client is admitted when its startup message arrives, not when its
+  // socket is accepted: one accepted during a refusal or a switch is served
+  // if an instance is by then. Until then it belongs to no instance, so a
+  // switch leaves it alone.
   const accept = (socket: Socket) => {
-    const target = served
-    const admission = admit(target, nextProcessId++)
-    const counted = !admission.refusal
-    const connection = serveConnection(socket, admission)
+    let target: Served | undefined
 
-    if (counted) {
+    // How the handshake ends: in a session on the served instance, or in an
+    // error when there is none or no room for one more client.
+    const admit = (): Admission => {
+      if (!served) {
+        return { refusal: refusal ?? notReady('switching instances') }
+      }
+
+      if (admitted >= maxConnections) {
+        return { refusal: TOO_MANY_CLIENTS }
+      }
+
+      target = served
+      target.connections.add(connection)
       admitted++
+
+      return { backend: target.backend, serverParameters: target.serverParameters }
     }
+
+    const connection = serveConnection(socket, { admit, onError, processId: nextProcessId++ })
 
     connections.add(connection)
-    target?.connections.add(connection)
 
     socket.once('close', () => {
       connections.delete(connection)
-      target?.connections.delete(connection)
 
-      if (counted) {
+      if (target) {
+        target.connections.delete(connection)
         admitted--
       }
     })
@@ -332,7 +329,6 @@ export function createPGliteSocketServer(
 
     current = undefined
     served = undefined
-    listening = undefined
 
     if (!stopping) {
       return
@@ -380,15 +376,24 @@ export function createPGliteSocketServer(
     listen() {
       // A close in progress finishes first: starting over its teardown would
       // hand out a server about to stop.
-      listening ??= (closing ?? Promise.resolve())
+      if (listening) {
+        return listening
+      }
+
+      const run: Promise<PGliteSocketServer> = (closing ?? Promise.resolve())
         .then(() => exclusive(start))
         .catch((error: unknown) => {
-          listening = undefined
+          // Unless a close has let go of it already, and a new start began.
+          if (listening === run) {
+            listening = undefined
+          }
 
           throw error
         })
 
-      return listening
+      listening = run
+
+      return run
     },
 
     serve(target) {
@@ -434,15 +439,31 @@ export function createPGliteSocketServer(
     },
 
     close() {
+      const started = listening
+
+      // Cleared now rather than once stopped: a `listen()` right after this
+      // call starts over once the close is done, instead of handing back the
+      // server being closed.
+      listening = undefined
+
+      // A close in progress covers everything but a start queued after it.
+      if (closing && !started) {
+        return closing
+      }
+
       // A start in progress finishes first, so that it is torn down too.
-      closing ??= (listening ?? Promise.resolve())
+      const run: Promise<void> = (started ?? Promise.resolve())
         .catch(() => {})
         .then(() => exclusive(stop))
         .finally(() => {
-          closing = undefined
+          if (closing === run) {
+            closing = undefined
+          }
         })
 
-      return closing
+      closing = run
+
+      return run
     },
   }
 

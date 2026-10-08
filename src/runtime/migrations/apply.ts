@@ -45,6 +45,12 @@ const IDENTIFIER = /^[a-z_][a-z0-9_]{0,62}$/
 
 const SILENT: MigrationLogger = { info: () => {}, warn: () => {} }
 
+// Serialises appliers on the same database (two dev processes, a CI job and a
+// deploy, …), whatever their tables: the first 8 bytes of
+// sha256('nuxt-pglite:migrations'), as a signed bigint. Taken per transaction,
+// so it is released with it, and reentrant within PGlite's single session.
+const LOCK = `SELECT pg_advisory_xact_lock(5111100116632684462)`
+
 interface Table {
   schema?: string
   /** The quoted, possibly qualified name. */
@@ -74,10 +80,6 @@ export async function applyMigrations(
       ? undefined
       : parseTable(digests === true ? DEFAULT_DIGEST_TABLE : digests, 'digests')
 
-  if (digestTable?.sql === tracking.sql) {
-    throw new Error(`The digests table cannot be the tracking table (${tracking.sql}).`)
-  }
-
   const setup = [
     ...createTable(
       tracking,
@@ -91,7 +93,17 @@ export async function applyMigrations(
       : []),
   ].join('\n')
 
-  const [migrations] = await Promise.all([readMigrations(dir), executor.exec(setup)])
+  const [migrations] = await Promise.all([
+    readMigrations(dir),
+    // Under the lock: concurrent `IF NOT EXISTS` creations race on Postgres.
+    executor.transaction(async (tx) => {
+      await tx.exec(`${LOCK};\n${setup}`)
+
+      if (digestTable) {
+        await assertDistinctTables(tx, tracking, digestTable)
+      }
+    }),
+  ])
   const included = upTo(migrations, target)
 
   const [tracked, recorded] = await Promise.all([
@@ -129,7 +141,16 @@ export async function applyMigrations(
 
     try {
       // One session: the statements of a transaction run one after the other.
-      await executor.transaction(async (tx) => {
+      const ran = await executor.transaction(async (tx) => {
+        await tx.exec(LOCK)
+
+        // Another applier may have applied it since it was read as pending.
+        const { rows } = await tx.query(`SELECT 1 FROM ${tracking.sql} WHERE name = $1`, [name])
+
+        if (rows.length > 0) {
+          return false
+        }
+
         await tx.exec(text)
         await tx.query(`INSERT INTO ${tracking.sql} (name) VALUES ($1)`, [name])
 
@@ -140,7 +161,13 @@ export async function applyMigrations(
             [name, digestMigration(text)],
           )
         }
+
+        return true
       })
+
+      if (!ran) {
+        continue
+      }
     } catch (cause) {
       throw new MigrationError(name, { cause })
     }
@@ -150,6 +177,25 @@ export async function applyMigrations(
   }
 
   return done
+}
+
+/**
+ * Compares the tables themselves, once created, rather than their spellings:
+ * `public.migrations` and `migrations` may name the same one.
+ */
+async function assertDistinctTables(
+  tx: Pick<MigrationExecutor, 'query'>,
+  tracking: Table,
+  digestTable: Table,
+): Promise<void> {
+  const { rows } = await tx.query<{ same: boolean }>(
+    'SELECT to_regclass($1)::oid = to_regclass($2)::oid AS same',
+    [tracking.sql, digestTable.sql],
+  )
+
+  if (rows[0]?.same) {
+    throw new Error(`The digests table cannot be the tracking table (${tracking.sql}).`)
+  }
 }
 
 interface DriftCheck {

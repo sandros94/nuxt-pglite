@@ -198,7 +198,9 @@ export default definePGliteServerConfig({
 
 A migration is either a `<name>/migration.sql` directory, the layout drizzle-kit 1.0 generates (`<timestamp>_<name>/migration.sql`), or a flat `<name>.sql` file. Anything else in the directory is ignored, and migrations apply in name order. Options: `table` (the tracking table, `schema.table` or `table`, default `netlify.migrations`), `target` (stop at a migration, by full name or by the part before an `_`), `digests` (see below), `logger` (`{ info, warn }`, e.g. `consola`; silent by default). `readMigrations(dir)` lists the migrations as `applyMigrations` sees them, for tooling.
 
-A failing migration throws a `MigrationError` (with the `migration` name and the database error as `cause`) once its transaction is rolled back; the migrations after it are not run.
+A failing migration throws a `MigrationError` (with the `migration` name and the database error as `cause`) once its transaction is rolled back; the migrations after it are not run. A migration that issues its own `BEGIN; … COMMIT;` commits outside that transaction, so a failure after its `COMMIT` leaves it applied but untracked.
+
+Appliers running at once on the same database (two dev servers, a CI job, …) take turns: each migration's transaction holds a Postgres advisory lock and skips a migration another applier recorded meanwhile.
 
 ### Edited migrations
 
@@ -234,7 +236,7 @@ await db.pg.query('INSERT INTO todos (title) VALUES ($1)', ['first'])
 await db.close()
 ```
 
-Options: `config` (the config object, or the path of its file), `dataDir` (in memory by default, whatever the config says), `socket`, `exportEnv`. `$test` overrides in the config apply. `close()` runs the config's `dispose` and closes everything the database opened.
+Options: `config` (the config object, or the path of its file), `alias` (for a config path, see [Config files](#config-files)), `dataDir` (in memory by default, whatever the config says; the config's `fs` is dropped too), `socket`, `exportEnv`. `$test` overrides in the config apply. `close()` runs the config's `dispose` and closes everything the database opened.
 
 ### Isolation
 
@@ -266,7 +268,20 @@ const db = await createTestDatabase({ config: 'server/pglite.config', socket: tr
 
 ### Config files
 
-`createTestDatabase` loads a config path with `loadPGliteConfig(path)`, also exported: relative to `process.cwd()`, extension optional, with `definePGliteServerConfig` provided as a global while the file is imported (so a file written for the auto-import works unchanged) and `$test` applied. The file is imported through jiti, so TypeScript works on any runtime; `alias` (name to absolute path, as `nuxt.options.alias`) resolves the imports the app's aliases would.
+`createTestDatabase` loads a config path with `loadPGliteConfig(path)`, also exported: relative to `process.cwd()`, extension optional, with `definePGliteServerConfig` provided as a global while the file is imported (so a file written for the auto-import works unchanged) and `$test` applied. The file is imported through jiti, so TypeScript works on any runtime, and fresh on every call.
+
+Outside Nuxt the app's aliases (`~~`, `#pglite/migrations`, …) are not defined, so a file importing through one fails to load. Pass them as `alias`, to `createTestDatabase`, `definePGliteGlobalSetup` or `loadPGliteConfig`: name to absolute path, as `nuxt.options.alias` holds them. For instance `#pglite/migrations` is the module's `dist/runtime/migrations`, and the `paths` of `.nuxt/tsconfig.json` list the others; or import from `nuxt-pglite/migrations` in the file instead, which resolves anywhere.
+
+```ts
+import { fileURLToPath } from 'node:url'
+
+const db = await createTestDatabase({
+  config: 'server/pglite.config',
+  alias: {
+    '#pglite/migrations': fileURLToPath(import.meta.resolve('nuxt-pglite/migrations')),
+  },
+})
+```
 
 ### vitest
 
@@ -484,7 +499,7 @@ await pglite.close()
 
 `server.refuse(reason, { hint })` disconnects the clients and refuses new ones (`57P03`, `PGlite is not ready: <reason>`) while the instance is unavailable; `server.serve(db)` serves an instance from then on, behind the same URL. `createPGliteSocketServer(null)` starts refusing until the first `serve()`.
 
-These entries and `nuxt-pglite/testing` import only `@electric-sql/pglite` and Node built-ins; `nuxt-pglite/migrations` only Node built-ins.
+These entries import only `@electric-sql/pglite` and Node built-ins, `nuxt-pglite/testing` also `jiti` (to load config files), and `nuxt-pglite/migrations` only Node built-ins.
 
 ## Contribution
 

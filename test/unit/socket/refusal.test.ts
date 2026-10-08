@@ -1,3 +1,6 @@
+import { once } from 'node:events'
+import { connect as connectSocket } from 'node:net'
+
 import { PGlite } from '@electric-sql/pglite'
 import { Client } from 'pg'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -8,8 +11,11 @@ import type { PGliteSocketServer } from '../../../src/runtime/socket'
 const servers: PGliteSocketServer[] = []
 const instances: PGlite[] = []
 
-const listen = async (db: PGlite | null) => {
-  const server = createPGliteSocketServer(db)
+const listen = async (
+  db: PGlite | null,
+  options?: Parameters<typeof createPGliteSocketServer>[1],
+) => {
+  const server = createPGliteSocketServer(db, options)
   servers.push(server)
   return server.listen()
 }
@@ -81,6 +87,43 @@ describe('a refusing socket server', () => {
     await expect(next.query('SELECT * FROM swap_test')).rejects.toMatchObject({ code: '42P01' })
     expect((await next.query('SELECT 2 AS v')).rows).toEqual([{ v: 2 }])
     await next.end()
+  })
+
+  it('admits a client when its startup message arrives, not when it was accepted', async () => {
+    const server = await listen(null)
+    const address = server.address
+    if (!address || !('host' in address)) {
+      throw new Error('Expected a TCP address')
+    }
+    const socket = connectSocket(address.port, address.host)
+    try {
+      await once(socket, 'connect')
+      await server.serve(open())
+
+      const startup = Buffer.concat([Buffer.alloc(8), Buffer.from('user\0postgres\0\0')])
+      startup.writeInt32BE(startup.length, 0)
+      startup.writeInt32BE(196608, 4)
+      socket.write(startup)
+
+      const reply = await new Promise<Buffer>((resolve) => socket.once('data', resolve))
+      // AuthenticationOk rather than an ErrorResponse (`E`).
+      expect(String.fromCharCode(reply[0]!)).toBe('R')
+    } finally {
+      socket.destroy()
+    }
+  })
+
+  it('frees the room of the clients a refusal disconnects', async () => {
+    const db = open()
+    const server = await listen(db, { maxConnections: 1 })
+    await connect(server)
+
+    await server.refuse(new Error('switching'))
+    await server.serve(db)
+
+    const client = await connect(server)
+    expect((await client.query('SELECT 1 AS v')).rows).toEqual([{ v: 1 }])
+    await client.end()
   })
 
   it('keeps its state across a restart', async () => {

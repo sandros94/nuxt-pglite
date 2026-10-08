@@ -70,15 +70,8 @@ export async function readSessionSettings(
   return rows
 }
 
-export type ConnectionOptions = {
-  /**
-   * Unique per connection. Reported as the backend process id and used to
-   * namespace the connection's prepared statements.
-   */
-  processId: number
-
-  onError: (error: unknown) => void
-} & (
+// How a client's handshake ends.
+export type Admission =
   | {
       backend: Backend
 
@@ -96,7 +89,22 @@ export type ConnectionOptions = {
        */
       refusal: Termination
     }
-)
+
+export interface ConnectionOptions {
+  /**
+   * Unique per connection. Reported as the backend process id and used to
+   * namespace the connection's prepared statements.
+   */
+  processId: number
+
+  onError: (error: unknown) => void
+
+  /**
+   * Called once, when the client's startup message arrives: what is served
+   * then, rather than when the socket was accepted, decides the handshake.
+   */
+  admit: () => Admission
+}
 
 export interface Connection {
   /**
@@ -212,9 +220,11 @@ export function serveConnection(socket: Socket, options: ConnectionOptions): Con
 
           break
 
-        case 'startup':
-          if (options.refusal) {
-            terminate(options.refusal)
+        case 'startup': {
+          const admission = options.admit()
+
+          if (admission.refusal) {
+            terminate(admission.refusal)
 
             break
           }
@@ -227,11 +237,11 @@ export function serveConnection(socket: Socket, options: ConnectionOptions): Con
 
           // The startup parameters (user, database, options) are not validated:
           // the server trusts every client and has one database.
-          session = openSession(options.backend)
+          session = openSession(admission.backend)
           write(
             concatBytes(
               buildAuthenticationOk(),
-              ...Array.from(options.serverParameters, ([name, value]) =>
+              ...Array.from(admission.serverParameters, ([name, value]) =>
                 buildParameterStatus(name, value),
               ),
               buildBackendKeyData(processId, 0),
@@ -241,6 +251,7 @@ export function serveConnection(socket: Socket, options: ConnectionOptions): Con
           phase = 'ready'
 
           break
+        }
       }
     }
   }

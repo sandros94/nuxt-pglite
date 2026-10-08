@@ -1,7 +1,9 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { MemoryFS } from '@electric-sql/pglite'
 import type { PGlite } from '@electric-sql/pglite'
 import { citext } from '@electric-sql/pglite/contrib/citext'
 import { Client } from 'pg'
@@ -33,6 +35,18 @@ async function queryOver(url: string, sql: string): Promise<unknown[]> {
   } finally {
     await client.end()
   }
+}
+
+// A port nothing listens on, once this resolves.
+async function freePort(): Promise<number> {
+  const server = createServer()
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const address = server.address()
+  await new Promise((resolve) => server.close(resolve))
+  if (!address || typeof address === 'string') {
+    throw new Error('Expected a TCP address')
+  }
+  return address.port
 }
 
 // None of these is set by the suite's environment; each test starts without them.
@@ -153,6 +167,53 @@ describe('createTestDatabase', () => {
     expect(process.env.NETLIFY_DB_DRIVER).toBeUndefined()
   })
 
+  it('leaves a variable set to an empty value alone', async () => {
+    vi.stubEnv('DATABASE_URL', '')
+    const db = await createTestDatabase({ socket: true })
+    try {
+      expect(process.env.DATABASE_URL).toBe('')
+    } finally {
+      await db.close()
+    }
+    expect(process.env.DATABASE_URL).toBe('')
+  })
+
+  it('closes the socket and the instance when an `env` function throws', async () => {
+    const port = await freePort()
+    const created = vi.fn<(pg: PGlite) => void>()
+    await expect(
+      createTestDatabase({
+        config: { init: created },
+        socket: {
+          port,
+          env: {
+            DATABASE_URL: () => {
+              throw new Error('no url')
+            },
+          },
+        },
+      }),
+    ).rejects.toThrow('no url')
+    expect(created.mock.calls[0]?.[0]).toMatchObject({ closed: true })
+    // The port is free again.
+    const server = createServer()
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject)
+      server.listen(port, '127.0.0.1', resolve)
+    })
+    await new Promise((resolve) => server.close(resolve))
+  })
+
+  it("does not use the config's `fs`, which holds the app's data", async () => {
+    const fs = new MemoryFS()
+    const db = await createTestDatabase({ config: { fs } })
+    try {
+      expect(db.pg.fs).not.toBe(fs)
+    } finally {
+      await db.close()
+    }
+  })
+
   it('exports nothing with exportEnv: false', async () => {
     const db = await createTestDatabase({ socket: true, exportEnv: false })
     try {
@@ -212,6 +273,46 @@ describe('loadPGliteConfig', () => {
         "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",
       )
       expect(rows).toEqual([{ tablename: 'test' }])
+    } finally {
+      await db.close()
+    }
+  })
+
+  it('reads the file again on every load', async () => {
+    const path = join(directory, 'pglite.config.ts')
+    await writeFile(path, "export default definePGliteServerConfig({ dataDir: 'first' })")
+    expect(await loadPGliteConfig(path)).toMatchObject({ dataDir: 'first' })
+
+    await writeFile(path, "export default definePGliteServerConfig({ dataDir: 'second' })")
+    expect(await loadPGliteConfig(path)).toMatchObject({ dataDir: 'second' })
+  })
+
+  it('resolves the imports through `alias`, which the file needs outside Nuxt', async () => {
+    await mkdir(join(directory, 'shared'))
+    await writeFile(
+      join(directory, 'shared', 'schema.ts'),
+      "export const schema = 'CREATE TABLE aliased (id int)'",
+    )
+    await writeFile(
+      join(directory, 'pglite.config.ts'),
+      [
+        "import { schema } from '#shared/schema'",
+        'export default definePGliteServerConfig({',
+        '  init: (pg: { exec(sql: string): Promise<unknown> }) => pg.exec(schema),',
+        '})',
+      ].join('\n'),
+    )
+    const path = join(directory, 'pglite.config')
+
+    await expect(loadPGliteConfig(path)).rejects.toThrow(/#shared\/schema/)
+
+    const db = await createTestDatabase({
+      config: path,
+      alias: { '#shared': join(directory, 'shared') },
+    })
+    try {
+      const { rows } = await db.pg.query("SELECT to_regclass('aliased') IS NOT NULL AS found")
+      expect(rows).toEqual([{ found: true }])
     } finally {
       await db.close()
     }

@@ -212,7 +212,12 @@ async function startSocket(
 
   // Through jiti rather than a bare import: the app's aliases (`~~`,
   // `#pglite/*`, …) resolve in the file as they do in the server bundle.
-  const jiti = createJiti(nuxt.options.rootDir, { alias: nuxt.options.alias })
+  // Uncached, as c12 does: a restart after a config edit runs in this same
+  // process, where a cached module would hand back the previous config.
+  const jiti = createJiti(nuxt.options.rootDir, {
+    alias: nuxt.options.alias,
+    moduleCache: false,
+  })
   const userConfig = configPath
     ? await importServerConfig(configPath, (path) => jiti.import(path))
     : {}
@@ -245,19 +250,24 @@ async function startSocket(
         : serverOptions.path,
     logger: (...message: unknown[]) => logger.warn(message.map(String).join(' ')),
   })
+  let variables: Record<string, string>
   try {
     if (failure) {
       await server.refuse(failure, { hint: REFUSAL_HINT })
     }
     await server.listen()
+    // Inside the try: an `env` function may throw, once the socket listens.
+    variables = resolveSocketEnv({ env, provider }, server.url)
   } catch (error) {
     task.stop('PGlite socket could not start', 'failure')
+    // The socket first: closing it waits for the message running on `db`.
+    await server.close()
     await db?.close()
     throw error
   }
 
   nuxt.options.runtimeConfig.pglite.url = server.url
-  const exported = exportEnv(resolveSocketEnv({ env, provider }, server.url), nuxt, logger)
+  const exported = exportEnv(variables, nuxt, logger)
   const names = Object.keys(exported)
   const listening = `PGlite socket ${failure ? 'refusing clients' : 'listening'} at ${server.url}${names.length ? ` (${names.join(', ')})` : ''}`
   if (failure) {
@@ -267,25 +277,32 @@ async function startSocket(
     task.stop(listening)
   }
 
-  // Resets run one at a time; shutdown waits for the one in progress.
+  // Resets run one at a time; shutdown waits for the one in progress and
+  // refuses new ones, which would create an instance nothing closes.
   let resetting: Promise<void> = Promise.resolve()
+  let closed = false
 
   async function reset() {
     let released = false
+    let created: PGlite | undefined
     try {
-      db = await resetInstance(PGlite, config, async () => {
+      created = await resetInstance(PGlite, config, async () => {
         released = true
         await server.refuse(new Error('the database is being reset'))
         const previous = db
         db = undefined
         await previous?.close()
       })
-      await server.serve(db)
+      db = created
+      await server.serve(created)
     } catch (error) {
       // Refused before anything was released: the instance keeps serving.
       if (released) {
         failure = asError(error)
-        await server.refuse(failure, { hint: REFUSAL_HINT })
+        // A new instance the socket could not serve is closed, rather than
+        // left holding the data directory for `use()` alone.
+        db = undefined
+        await Promise.all([server.refuse(failure, { hint: REFUSAL_HINT }), created?.close()])
       }
       throw error
     }
@@ -293,6 +310,7 @@ async function startSocket(
   }
 
   nuxt.hook('close', async () => {
+    closed = true
     await resetting.catch(() => {})
     await server.close()
     await db?.close()
@@ -313,6 +331,9 @@ async function startSocket(
       return db
     },
     reset() {
+      if (closed) {
+        return Promise.reject(new Error('PGlite cannot be reset: the dev server is closing.'))
+      }
       const run = resetting.catch(() => {}).then(reset)
       resetting = run
       return run
@@ -321,10 +342,11 @@ async function startSocket(
 }
 
 /**
- * Sets each variable that is still unset, and returns those it set. Another
- * module may set the same ones afterwards, e.g. a database emulation in
- * `nitro:init`: they are checked once Nitro is set up and again once the dev
- * server listens, with a warning for each that no longer reaches the socket.
+ * Sets each variable that is still unset (an empty value counts as set), and
+ * returns those it set. Another module may set the same ones afterwards, e.g.
+ * a database emulation in `nitro:init`: they are checked once Nitro is set up
+ * and again once the dev server listens, with a warning for each that no
+ * longer reaches the socket.
  * Those still holding the socket's values are unset on close, so that a
  * restart exports its own.
  */
@@ -335,7 +357,7 @@ function exportEnv(
 ): Record<string, string> {
   const exported: Record<string, string> = {}
   for (const [name, value] of Object.entries(variables)) {
-    if (!process.env[name]) {
+    if (process.env[name] === undefined) {
       process.env[name] = value
       exported[name] = value
     }
