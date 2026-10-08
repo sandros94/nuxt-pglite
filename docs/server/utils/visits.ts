@@ -3,7 +3,7 @@ import { count, desc } from 'drizzle-orm'
 import { tables, useDB } from './db'
 
 const UNCONFIGURED =
-  'No database configured: set `DATABASE_URL` (in `nuxt dev` the development socket sets it for you).'
+  'No database configured: `NETLIFY_DB_URL` is unset, so Netlify Database is not enabled on this site (in `nuxt dev` the development socket sets it for you).'
 
 /**
  * Runs `write` (if any) and reads the latest visits back, turning a missing or

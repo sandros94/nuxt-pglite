@@ -26,7 +26,7 @@ onMounted(() => request('GET'))
       <div class="flex flex-wrap items-center justify-between gap-2">
         <span class="flex items-center gap-2 text-sm text-muted">
           <UIcon name="i-lucide-server" class="size-4" />
-          <span><code>/api/visits</code>, Drizzle over <code>DATABASE_URL</code></span>
+          <span><code>/api/visits</code>, Drizzle over <code>NETLIFY_DB_URL</code></span>
         </span>
         <div class="flex gap-2">
           <UButton
@@ -58,7 +58,7 @@ onMounted(() => request('GET'))
       color="warning"
       variant="subtle"
       icon="i-lucide-database-zap"
-      title="No DATABASE_URL"
+      title="No NETLIFY_DB_URL"
       :description="data.message"
       data-testid="server-demo-unconfigured"
     />
@@ -87,7 +87,7 @@ onMounted(() => request('GET'))
     <template #footer>
       <p class="text-xs text-muted">
         In <code>nuxt dev</code> this route reaches PGlite through the development socket. On the
-        deployed site it reaches whatever <code>DATABASE_URL</code> the host provides, if any.
+        deployed site it reaches Netlify Database, when it is enabled on the site.
       </p>
     </template>
   </UCard>

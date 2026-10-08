@@ -9,12 +9,9 @@ const studio: PGliteProcessAction = {
     if (!socketUrl) {
       throw new Error('The development socket is not running.')
     }
+    // `drizzle.config.ts` points at the pinned socket port, so no variable to pass.
     startSubprocess(
-      {
-        command: 'pnpm',
-        args: ['exec', 'drizzle-kit', 'studio'],
-        env: { DATABASE_URL: socketUrl },
-      },
+      { command: 'pnpm', args: ['exec', 'drizzle-kit', 'studio'] },
       { id: 'drizzle-studio', name: 'Drizzle Studio', icon: 'simple-icons:drizzle' },
     )
     return 'Drizzle Studio is starting, see the DevTools terminal.'
@@ -68,11 +65,12 @@ export default defineNuxtConfig({
     client: {
       enabled: true,
     },
-    // No PGlite on the server: the API routes use `DATABASE_URL`, which the
-    // development socket provides in `nuxt dev` and the host in production.
+    // No PGlite on the server: the API routes use Netlify Database through
+    // `NETLIFY_DB_URL`, which the development socket provides in `nuxt dev`
+    // (the `netlify` preset) and Netlify in production.
     server: {
       enabled: false,
-      socket: { port: 5456 },
+      socket: { port: 5456, provider: 'netlify' },
     },
     devtools: {
       actions: [studio],
@@ -113,6 +111,11 @@ export default defineNuxtConfig({
         title: 'DevTools & tooling',
         contentCollection: 'docs',
         contentFilters: [{ field: 'path', operator: 'LIKE', value: '/devtools%' }],
+      },
+      {
+        title: 'Migrations',
+        contentCollection: 'docs',
+        contentFilters: [{ field: 'path', operator: 'LIKE', value: '/migrations%' }],
       },
       {
         title: 'Deploy',

@@ -1,6 +1,7 @@
 # The documentation site (`docs/`). Nitro detects Netlify and picks its
 # `netlify` preset, which writes the static files to `dist` and the server
-# routes to `.netlify/functions-internal`.
+# routes to `.netlify/functions-internal`. Netlify applies
+# `docs/netlify/database/migrations` itself before publishing: no migration command.
 [build]
 base = "docs"
 command = "pnpm build"

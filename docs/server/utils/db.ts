@@ -1,20 +1,26 @@
-import { drizzle } from 'drizzle-orm/node-postgres'
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
+import { drizzle } from 'drizzle-orm/netlify-db'
 
+import { relations } from '../database/relations'
 import * as schema from '../database/schema'
 
-let db: NodePgDatabase<typeof schema> | undefined
+function createDB() {
+  return drizzle({ relations })
+}
+
+let db: ReturnType<typeof createDB> | undefined
 
 /**
- * Drizzle over `DATABASE_URL`: the development socket sets it in `nuxt dev`,
- * the host's environment in production. `undefined` when neither does.
+ * Drizzle over Netlify Database. `NETLIFY_DB_URL` is set by Netlify on a site
+ * with the database enabled, and by the development socket in `nuxt dev`,
+ * along with `NETLIFY_DB_DRIVER=server` so that `pg` is used rather than
+ * Neon's HTTP driver, which the socket cannot answer. `undefined` when it is
+ * unset, since `drizzle()` throws without it, so the routes can say so.
  */
 export function useDB() {
-  const url = process.env.DATABASE_URL
-  if (!url) {
+  if (!process.env.NETLIFY_DB_URL) {
     return undefined
   }
-  db ??= drizzle(url, { schema })
+  db ??= createDB()
   return db
 }
 

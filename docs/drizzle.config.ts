@@ -1,15 +1,15 @@
 import { defineConfig } from 'drizzle-kit'
 
+// Netlify applies the files in `out` on deploy and `init` (`server/pglite.config.ts`) applies them locally: no `push`/`migrate`.
 export default defineConfig({
+  out: './netlify/database/migrations',
   schema: './server/database/schema.ts',
-  out: './server/database/migrations',
   dialect: 'postgresql',
   dbCredentials: {
     /**
-     * The real database when `DATABASE_URL` is set, the development socket
-     * otherwise: it is pinned to a port in `nuxt.config.ts` so that tooling
-     * finds it while `nuxt dev` runs.
+     * The development socket, pinned to a port in `nuxt.config.ts` so that
+     * tooling (`studio`, `check`) can find it while `nuxt dev` is running.
      */
-    url: process.env.DATABASE_URL ?? 'postgres://postgres@127.0.0.1:5456/postgres',
+    url: 'postgres://postgres@127.0.0.1:5456/postgres',
   },
 })
