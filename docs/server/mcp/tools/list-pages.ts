@@ -10,7 +10,7 @@ WHEN TO USE: Use this tool when you need to EXPLORE or SEARCH for documentation 
 - User asks general questions without specifying exact pages
 - You need to understand the overall documentation structure
 
-WHEN NOT TO USE: If you already know the specific page path (e.g., "/getting-started/installation"), use get-page directly instead.
+WHEN NOT TO USE: If you already know the specific page path (e.g., "/guide/installation"), use get-page directly instead.
 
 WORKFLOW: This tool returns page titles, descriptions, and paths. After finding relevant pages, use get-page to retrieve the full content of specific pages that match the user's needs.
 

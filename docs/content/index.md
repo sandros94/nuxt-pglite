@@ -20,7 +20,7 @@ Nuxt PGlite wires [PGlite](https://pglite.dev), Postgres compiled to WebAssembly
 #links
   :::u-button
   ---
-  to: /getting-started
+  to: /guide
   size: xl
   trailing-icon: i-lucide-arrow-right
   ---
@@ -79,7 +79,7 @@ Three pieces, use any of them
   :::u-page-feature
   ---
   icon: i-lucide-server
-  to: /server
+  to: /guide/server
   ---
   #title
   Server instance
@@ -91,7 +91,7 @@ Three pieces, use any of them
   :::u-page-feature
   ---
   icon: i-lucide-plug
-  to: /socket
+  to: /guide/socket
   ---
   #title
   Development socket
@@ -103,7 +103,7 @@ Three pieces, use any of them
   :::u-page-feature
   ---
   icon: i-lucide-monitor-smartphone
-  to: /client
+  to: /guide/client
   ---
   #title
   In-browser database
@@ -111,23 +111,17 @@ Three pieces, use any of them
   #description
   PGlite in a Web Worker shared between tabs, with `useLiveQuery()` keeping your components in sync with the data.
   :::
+::
 
-  :::u-page-feature
-  ---
-  icon: i-lucide-wrench
-  to: /devtools
-  ---
-  #title
-  DevTools tab
+::u-page-section{class="dark:bg-neutral-950"}
+#title
+And what goes with them
 
-  #description
-  Inspect each instance, run SQL against it and trigger your own actions: seeding, resets, migration CLIs.
-  :::
-
+#features
   :::u-page-feature
   ---
   icon: i-lucide-cloud-upload
-  to: /socket/development-only
+  to: /recipes/deploy
   ---
   #title
   PGlite in dev, Postgres in prod
@@ -138,13 +132,61 @@ Three pieces, use any of them
 
   :::u-page-feature
   ---
+  icon: i-lucide-database-backup
+  to: /recipes/migrations
+  ---
+  #title
+  Migrations
+
+  #description
+  A folder of SQL files, applied from `init` in development and by you or your platform in production.
+  :::
+
+  :::u-page-feature
+  ---
+  icon: i-lucide-test-tube
+  to: /recipes/testing
+  ---
+  #title
+  Testing
+
+  #description
+  A database built from your app's config for the test suite, in memory and forkable per test.
+  :::
+
+  :::u-page-feature
+  ---
+  icon: i-lucide-wrench
+  to: /guide/devtools
+  ---
+  #title
+  DevTools tab
+
+  #description
+  Inspect each instance, run SQL against it and trigger your own actions: seeding, resets, migration CLIs.
+  :::
+
+  :::u-page-feature
+  ---
   icon: i-lucide-package
-  to: /outside-nuxt
+  to: /recipes/outside-nuxt
   ---
   #title
   Outside Nuxt
 
   #description
   The config helper, the lazy provider and the socket server ship as their own entries, usable from any Node, Bun or Deno server.
+  :::
+
+  :::u-page-feature
+  ---
+  icon: i-lucide-code-xml
+  to: /reference/config-files
+  ---
+  #title
+  Reference
+
+  #description
+  Every option, export, hook and environment variable, with its type and default.
   :::
 ::

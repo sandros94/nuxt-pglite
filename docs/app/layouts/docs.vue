@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import type { ContentNavigationItem } from '@nuxt/content'
-
-const navigation = inject<Ref<ContentNavigationItem[]>>('navigation')
+// Each area (Guide, Recipes, Reference) has its own sidebar: its tree only.
+const { area } = useDocsAreas()
 </script>
 
 <template>
@@ -9,7 +8,7 @@ const navigation = inject<Ref<ContentNavigationItem[]>>('navigation')
     <UPage>
       <template #left>
         <UPageAside>
-          <UContentNavigation highlight :navigation="navigation" />
+          <UContentNavigation highlight :navigation="area?.children" />
         </UPageAside>
       </template>
 

@@ -1,30 +1,11 @@
 <script setup lang="ts">
-import type { ContentNavigationItem } from '@nuxt/content'
-
-const navigation = inject<Ref<ContentNavigationItem[]>>('navigation')
-
 const { header } = useAppConfig()
+const { area, links } = useDocsAreas()
 </script>
 
 <template>
-  <UHeader :ui="{ center: 'flex-1' }" :to="header?.to || '/'">
-    <UContentSearchButton v-if="header?.search" :collapsed="false" class="w-full" />
-
-    <template v-if="header?.logo?.dark || header?.logo?.light || header?.title" #title>
-      <UColorModeImage
-        v-if="header?.logo?.dark || header?.logo?.light"
-        :light="header?.logo?.light!"
-        :dark="header?.logo?.dark!"
-        :alt="header?.logo?.alt"
-        class="h-6 w-auto shrink-0"
-      />
-
-      <span v-else-if="header?.title">
-        {{ header.title }}
-      </span>
-    </template>
-
-    <template v-else #left>
+  <UHeader>
+    <template #left>
       <NuxtLink
         :to="header?.to || '/'"
         class="focus-visible:outline-3 outline-primary/25 rounded-md p-1 -ms-1"
@@ -33,10 +14,12 @@ const { header } = useAppConfig()
       </NuxtLink>
     </template>
 
-    <template #right>
-      <UContentSearchButton v-if="header?.search" class="lg:hidden" />
+    <UNavigationMenu :items="links" variant="link" />
 
-      <UColorModeButton v-if="header?.colorMode" />
+    <template #right>
+      <UTooltip text="Search" :kbds="['meta', 'K']" ignore-non-keyboard-focus>
+        <UContentSearchButton />
+      </UTooltip>
 
       <template v-if="header?.links">
         <UButton
@@ -48,7 +31,13 @@ const { header } = useAppConfig()
     </template>
 
     <template #body>
-      <UContentNavigation highlight :navigation="navigation" />
+      <UNavigationMenu :items="links" orientation="vertical" class="-mx-2.5" />
+
+      <template v-if="area?.children?.length">
+        <USeparator type="dashed" class="my-4" />
+
+        <UContentNavigation highlight :navigation="area.children" />
+      </template>
     </template>
   </UHeader>
 </template>

@@ -15,33 +15,25 @@ export default defineAppConfig({
     siteName: 'Nuxt PGlite',
   },
   header: {
-    title: '',
     to: '/',
-    logo: {
-      alt: '',
-      light: '',
-      dark: '',
-    },
-    search: true,
-    colorMode: true,
     links: [
-      {
-        'icon': 'i-simple-icons-npm',
-        'to': 'https://npmjs.com/package/nuxt-pglite',
-        'target': '_blank',
-        'aria-label': 'nuxt-pglite on npm',
-      },
       {
         'icon': 'i-simple-icons-github',
         'to': 'https://github.com/sandros94/nuxt-pglite',
         'target': '_blank',
-        'aria-label': 'GitHub',
+        'aria-label': 'Nuxt PGlite on GitHub',
+      },
+      {
+        // simple-icons has no npmx mark yet
+        'icon': 'i-lucide-package',
+        'to': 'https://npmx.dev/package/nuxt-pglite',
+        'target': '_blank',
+        'aria-label': 'nuxt-pglite on npmx',
       },
     ],
   },
   footer: {
     credits: `Published under the MIT license • © ${new Date().getFullYear()} Sandro Circi`,
-    colorMode: false,
     links: [
       {
         'icon': 'i-simple-icons-github',

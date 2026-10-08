@@ -35,6 +35,11 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  // No toggle: the site follows the system theme.
+  colorMode: {
+    preference: 'system',
+  },
+
   site: {
     // Placeholder until the production domain is settled; `NUXT_SITE_URL` overrides it.
     url: 'https://nuxt-pglite.s94.dev',
@@ -88,49 +93,14 @@ export default defineNuxtConfig({
     },
     sections: [
       {
-        title: 'Getting Started',
+        title: 'Guide',
         contentCollection: 'docs',
-        contentFilters: [{ field: 'path', operator: 'LIKE', value: '/getting-started%' }],
+        contentFilters: [{ field: 'path', operator: 'LIKE', value: '/guide%' }],
       },
       {
-        title: 'Server',
+        title: 'Recipes',
         contentCollection: 'docs',
-        contentFilters: [{ field: 'path', operator: 'LIKE', value: '/server%' }],
-      },
-      {
-        title: 'Development socket',
-        contentCollection: 'docs',
-        contentFilters: [{ field: 'path', operator: 'LIKE', value: '/socket%' }],
-      },
-      {
-        title: 'Client',
-        contentCollection: 'docs',
-        contentFilters: [{ field: 'path', operator: 'LIKE', value: '/client%' }],
-      },
-      {
-        title: 'DevTools & tooling',
-        contentCollection: 'docs',
-        contentFilters: [{ field: 'path', operator: 'LIKE', value: '/devtools%' }],
-      },
-      {
-        title: 'Migrations',
-        contentCollection: 'docs',
-        contentFilters: [{ field: 'path', operator: 'LIKE', value: '/migrations%' }],
-      },
-      {
-        title: 'Testing',
-        contentCollection: 'docs',
-        contentFilters: [{ field: 'path', operator: 'LIKE', value: '/testing%' }],
-      },
-      {
-        title: 'Deploy',
-        contentCollection: 'docs',
-        contentFilters: [{ field: 'path', operator: 'LIKE', value: '/deploy%' }],
-      },
-      {
-        title: 'Outside Nuxt',
-        contentCollection: 'docs',
-        contentFilters: [{ field: 'path', operator: 'LIKE', value: '/outside-nuxt%' }],
+        contentFilters: [{ field: 'path', operator: 'LIKE', value: '/recipes%' }],
       },
       {
         title: 'Reference',
@@ -146,6 +116,12 @@ export default defineNuxtConfig({
 
   ogImage: {
     zeroRuntime: true,
+  },
+
+  routeRules: {
+    // The areas without an index page open on their first page.
+    '/recipes': { redirect: '/recipes/migrations' },
+    '/reference': { redirect: '/reference/config-files' },
   },
 
   prerender: {

@@ -5,7 +5,7 @@ export default defineMcpTool({
   description: `Retrieves the full content and details of a specific documentation page.
 
 WHEN TO USE: Use this tool when you know the EXACT path to a documentation page. Common use cases:
-- User asks for a specific page: "Show me the getting started guide" → /getting-started
+- User asks for a specific page: "Show me the getting started guide" → /guide
 - User asks about a known topic with a dedicated page
 - You found a relevant path from list-pages and want the full content
 - User references a specific section or guide they want to read
@@ -17,7 +17,7 @@ WORKFLOW: This tool returns the complete page content including title, descripti
     path: z
       .string()
       .describe(
-        'The page path from list-pages or provided by the user (e.g., /getting-started/installation)',
+        'The page path from list-pages or provided by the user (e.g., /guide/installation)',
       ),
   },
   cache: '1h',

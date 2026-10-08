@@ -19,10 +19,12 @@ if (!page.value) {
   throw createError({ statusCode: 404, statusMessage: 'Page not found', fatal: true })
 }
 
+// Prev / next stay within the page's area, as its sidebar does.
+const area = `/${routePath.value.split('/')[1]}`
 const { data: surround } = await useAsyncData(`${routePath.value}-surround`, () => {
   return queryCollectionItemSurroundings('docs', routePath.value, {
     fields: ['description'],
-  })
+  }).where('path', 'LIKE', `${area}%`)
 })
 
 const title = page.value.seo?.title || page.value.title
