@@ -13,7 +13,7 @@ export default defineNuxtConfig({
   pglite: {
     server: {
       enabled: false,
-      socket: true,
     },
+    socket: true,
   },
 })

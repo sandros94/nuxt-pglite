@@ -57,21 +57,27 @@ export interface SocketOptions {
   maxConnections?: number
   /** Milliseconds a client may sit idle inside a transaction before it is disconnected; `0` disables it. */
   idleInTransactionTimeout?: number
+  /**
+   * Actions listed in Nuxt DevTools and the terminal, run in the dev process
+   * next to the socket. Other modules add theirs through the
+   * `pglite:devtools:actions` hook.
+   */
+  actions?: PGliteSocketAction[]
 }
 
-/** What a `process` action receives: how to reach the database from outside the app. */
-export interface PGliteProcessActionContext {
-  /** Connection URL of the development socket, when it runs. */
-  socketUrl?: string
+/**
+ * What a `socket` action receives: how to reach the database from outside the
+ * app, through the socket.
+ */
+export interface PGliteSocketActionContext {
+  /** Connection URL of the development socket. */
+  socketUrl: string
   /**
    * The variables the socket exported, with their values: to pass on to a
-   * command so that it reaches the socket as the app does. Empty without it.
+   * command so that it reaches the socket as the app does.
    */
   env: Record<string, string>
-  /**
-   * Data directory of the server side: the one the socket serves while it
-   * runs, the `nuxt.config` default otherwise. Unset for an in-memory database.
-   */
+  /** Data directory the socket serves. Unset for an in-memory database. */
   dataDir?: string
   /**
    * Starts a long-running command whose output streams to its own terminal in
@@ -86,18 +92,11 @@ export interface PGliteProcessActionContext {
   logger: NuxtLogger
 }
 
-export type PGliteProcessAction = PGliteAction<PGliteProcessActionContext>
-
-export interface DevtoolsOptions {
-  /** Adds the PGlite tab to Nuxt DevTools, when DevTools is enabled. */
-  enabled: boolean
-  /**
-   * Actions that run outside the app, reaching the database through the
-   * socket URL: CLIs, migrations, studios. Other modules add theirs through
-   * the `pglite:devtools:actions` hook.
-   */
-  actions: PGliteProcessAction[]
-}
+/**
+ * An action that runs in the dev process next to the socket, reaching the
+ * database through its URL: CLIs, migrations, studios.
+ */
+export type PGliteSocketAction = PGliteAction<PGliteSocketActionContext>
 
 export interface ServerOptions {
   /** Registers `usePGlite()` and the server-side instance. */
@@ -116,12 +115,6 @@ export interface ServerOptions {
   options: SerializablePGliteOptions
   /** Creates the instance when the server starts instead of on first use. */
   eager: boolean
-  /**
-   * Serves the development instance over the Postgres wire protocol, so
-   * drivers and tools outside the app (`drizzle-kit`, `psql`, …) reach it
-   * through a connection URL. Development only.
-   */
-  socket: boolean | SocketOptions
 }
 
 export interface ClientOptions {
@@ -142,15 +135,26 @@ export interface ClientOptions {
 export interface ResolvedModuleOptions {
   server: ServerOptions
   client: ClientOptions
-  /** Nuxt DevTools integration and `process` actions: none of it is registered outside `nuxt dev`. */
-  devtools: DevtoolsOptions
+  /**
+   * Serves the server config's instance over the Postgres wire protocol, so
+   * drivers and tools outside the app (`drizzle-kit`, `psql`, …) reach it
+   * through a connection URL. Development only, and independent of
+   * `server.enabled`.
+   */
+  socket: boolean | SocketOptions
+  /**
+   * Adds the PGlite tab to Nuxt DevTools, when DevTools is enabled. Nothing
+   * of it is registered outside `nuxt dev`.
+   */
+  devtools: boolean
 }
 
 /** What `nuxt.config` accepts: any part of it, merged over the defaults. */
 export interface ModuleOptions {
   server?: Partial<ServerOptions>
   client?: Partial<ClientOptions>
-  devtools?: Partial<DevtoolsOptions>
+  socket?: boolean | SocketOptions
+  devtools?: boolean
 }
 
 /**
@@ -159,10 +163,10 @@ export interface ModuleOptions {
  */
 export interface ModuleHooks {
   /**
-   * Collects the `process` actions, once every module is set up: push to the
-   * array. Called in development only.
+   * Collects the `socket` actions, once every module is set up: push to the
+   * array. Called in development only, while the socket runs.
    */
-  'pglite:devtools:actions': (actions: PGliteProcessAction[]) => HookResult
+  'pglite:devtools:actions': (actions: PGliteSocketAction[]) => HookResult
   /**
    * Opens the action picker in the terminal of an interactive `nuxt dev`.
    * Registered only there, and only when there are actions to pick from.

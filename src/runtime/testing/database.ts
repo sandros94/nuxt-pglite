@@ -12,9 +12,9 @@ import type { PGliteSocketServer, PGliteSocketServerOptions } from '../socket/se
 import { loadPGliteConfig, TEST_ENV } from './config'
 
 /**
- * The module's `pglite.server.socket` options (`env` and `provider` resolve
- * the variables as in `nuxt dev`), plus the server's own (`user`, `database`,
- * `logger`).
+ * The module's `pglite.socket` options, `actions` aside (`env` and `provider`
+ * resolve the variables as in `nuxt dev`), plus the server's own (`user`,
+ * `database`, `logger`).
  */
 export interface TestSocketOptions extends PGliteSocketServerOptions, SocketEnvOptions {}
 

@@ -8,13 +8,11 @@ export default definePGliteClientConfig({
   init: async (pg) => {
     await pg.exec('CREATE EXTENSION IF NOT EXISTS vector')
   },
-  devtools: {
-    actions: [
-      {
-        id: 'clear',
-        label: 'Clear the test table',
-        run: async ({ pg }) => (await pg.query('DELETE FROM test')).affectedRows,
-      },
-    ],
-  },
+  actions: [
+    {
+      id: 'clear',
+      label: 'Clear the test table',
+      run: async ({ pg }) => (await pg.query('DELETE FROM test')).affectedRows,
+    },
+  ],
 })

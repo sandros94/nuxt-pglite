@@ -14,7 +14,7 @@ function createProvider(): PGliteProvider<Instance> {
   const {
     init,
     dispose,
-    devtools: _devtools,
+    actions: _actions,
     extensions: _workerExtensions,
     clientExtensions,
     ...options

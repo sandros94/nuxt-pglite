@@ -26,13 +26,11 @@ export default definePGliteServerConfig({
       await applyMigrations(pg, migrations)
     },
   },
-  devtools: {
-    actions: [
-      {
-        id: 'count',
-        label: 'Count test rows',
-        run: async ({ pg }) => (await pg.query('SELECT count(*)::int AS count FROM test')).rows[0],
-      },
-    ],
-  },
+  actions: [
+    {
+      id: 'count',
+      label: 'Count test rows',
+      run: async ({ pg }) => (await pg.query('SELECT count(*)::int AS count FROM test')).rows[0],
+    },
+  ],
 })

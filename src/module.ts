@@ -21,12 +21,9 @@ const DEFAULTS: ResolvedModuleOptions = {
     config: 'server/pglite.config',
     options: {},
     eager: false,
-    socket: false,
   },
-  devtools: {
-    enabled: true,
-    actions: [],
-  },
+  socket: false,
+  devtools: true,
 }
 
 // Annotated explicitly: without a bare `@nuxt/schema` reference in the type
@@ -59,7 +56,7 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
       }
     }
 
-    const server = await setupServer(options.server, nuxt, resolver)
+    const server = await setupServer(options.server, options.socket, nuxt, resolver)
     await setupClient(options.client, nuxt, resolver)
 
     // Imported statically: a dynamic import would split this module into a

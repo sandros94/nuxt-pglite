@@ -727,15 +727,15 @@
        * query function; `query` is unset when there is nothing to query.
        */
       async function serverTarget(rpc, state, view) {
-        const { server } = state
+        const { server, socket } = state
         const rows = [
           ['Enabled', badge(server.enabled)],
           ['Eager', badge(server.eager)],
         ]
-        if (server.socket) {
-          rows.push(['Socket', h('code', {}, server.socket.url)])
+        if (socket) {
+          rows.push(['Socket', h('code', {}, socket.url)])
           rows.push(['Connections', view.connections])
-          const env = Object.entries(server.socket.env)
+          const env = Object.entries(socket.env)
           rows.push([
             'Environment',
             env.length
@@ -855,7 +855,7 @@
       async function render(rpc) {
         const state = await rpc.getState()
         const view = {
-          connections: h('span', {}, String(state.server.socket?.connections ?? 0)),
+          connections: h('span', {}, String(state.socket?.connections ?? 0)),
           refusal: state.server.refusal,
         }
         const server = await serverTarget(rpc, state, view)
@@ -891,10 +891,12 @@
                 client.run,
               ),
               actionsCard(
-                'Tools',
-                'CLIs and other tools wired up in nuxt.config.ts; they reach the database through the socket URL, as any Postgres client would.',
-                state.process.actions,
-                (id) => rpc.runAction('process', id),
+                'Socket actions',
+                state.socket
+                  ? 'From nuxt.config.ts, run in the dev process next to the socket; they reach the database through its URL, as any Postgres client would.'
+                  : 'The development socket is not running: enable pglite.socket for actions next to it.',
+                state.socket?.actions ?? [],
+                (id) => rpc.runAction('socket', id),
               ),
             ),
           },
@@ -933,8 +935,7 @@
           if (document.hidden || !live) return
           const state = await rpc.getState().catch(() => undefined)
           if (state && state.server.refusal !== live.refusal) return refresh(rpc)
-          if (state?.server.socket)
-            live.connections.textContent = String(state.server.socket.connections)
+          if (state?.socket) live.connections.textContent = String(state.socket.connections)
         }, POLL_INTERVAL)
       } catch (error) {
         fail(error)

@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
     return runQuery(usePGlite, body.query)
   }
   if (typeof body?.action === 'string') {
-    return runAction(config.devtools?.actions, 'server', body.action, async () => ({
+    return runAction(config.actions, 'server', body.action, async () => ({
       pg: await usePGlite(),
     }))
   }

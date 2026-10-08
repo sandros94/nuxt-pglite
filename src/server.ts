@@ -39,12 +39,15 @@ function isPathDataDir(dataDir: string) {
 export interface ServerSetup {
   /** The development socket and the instance it serves, when it runs. */
   socket?: RunningSocket
-  /** The `nuxt.config` data directory, resolved; the config file may override it at runtime. */
-  dataDir?: string
 }
 
+/**
+ * Registers the server side and, in `nuxt dev`, starts the socket: it serves
+ * the same config file, so it is set up here even while the side is disabled.
+ */
 export async function setupServer(
   options: ServerOptions,
+  socketOptions: boolean | SocketOptions,
   nuxt: Nuxt,
   resolver: Resolver,
 ): Promise<ServerSetup> {
@@ -65,9 +68,9 @@ export async function setupServer(
     // The socket's instance lives in this process, so a config change needs a restart.
     nuxt.options.watch.push(configPath)
   }
-  if (configPath && !options.enabled && !options.socket) {
+  if (configPath && !options.enabled && !socketOptions) {
     logger.warn(
-      `${relative(nuxt.options.rootDir, configPath)} found, but \`pglite.server\` is disabled and has no socket: it is not used.`,
+      `${relative(nuxt.options.rootDir, configPath)} found, but \`pglite.server\` and \`pglite.socket\` are disabled: it is not used.`,
     )
   }
 
@@ -81,8 +84,14 @@ export async function setupServer(
   // database even when the server side (`usePGlite()`, PGlite in the bundle)
   // is disabled for the build.
   const socket =
-    nuxt.options.dev && options.socket
-      ? await startSocket(options, nuxt, defaults, configPath, logger)
+    nuxt.options.dev && socketOptions
+      ? await startSocket(
+          socketOptions === true ? {} : socketOptions,
+          nuxt,
+          defaults,
+          configPath,
+          logger,
+        )
       : undefined
 
   addServerTypes(configPath, resolver)
@@ -99,7 +108,7 @@ export async function setupServer(
     },
   ])
   if (!options.enabled) {
-    return { socket, dataDir: defaults.dataDir }
+    return { socket }
   }
 
   // A full file path, so that any bundler resolves the generated import.
@@ -137,7 +146,7 @@ export async function setupServer(
     nitro3: resolver.resolve('./runtime/server/plugins/pglite.nitro3'),
   })
 
-  return { socket, dataDir: defaults.dataDir }
+  return { socket }
 }
 
 function nuxtEnv(nuxt: Nuxt) {
@@ -168,12 +177,12 @@ function addServerTypes(configPath: string | undefined, resolver: Resolver) {
   )
 }
 
-/** The built-in `process` action that recreates the socket's instance; registered in `src/dev.ts`. */
+/** The built-in `socket` action that recreates the socket's instance; registered in `src/dev.ts`. */
 export const RESET_ACTION = { id: 'reset-database', label: 'Reset database' } as const
 
 const REFUSAL_HINT = `Restart \`nuxt dev\` once the cause is fixed, or run the "${RESET_ACTION.label}" action (Nuxt DevTools, PGlite tab) to recreate the database from scratch.`
 
-interface RunningSocket {
+export interface RunningSocket {
   server: PGliteSocketServer
   /** The resolved server config the instance is created from. */
   config: PGliteConfig
@@ -201,14 +210,14 @@ interface RunningSocket {
  * comes up anyway and refuses clients with the reason, until a reset.
  */
 async function startSocket(
-  options: ServerOptions,
+  socketOptions: SocketOptions,
   nuxt: Nuxt,
   defaults: ServerOptions['options'],
   configPath: string | undefined,
   logger: ReturnType<typeof useLogger>,
 ): Promise<RunningSocket> {
-  const socketOptions: SocketOptions = typeof options.socket === 'object' ? options.socket : {}
-  const { env, provider, ...serverOptions } = socketOptions
+  // The actions run next to the socket rather than in it (`src/dev.ts`).
+  const { env, provider, actions: _actions, ...serverOptions } = socketOptions
 
   // Through jiti rather than a bare import: the app's aliases (`~~`,
   // `#pglite/*`, …) resolve in the file as they do in the server bundle.

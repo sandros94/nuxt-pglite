@@ -84,8 +84,8 @@ export default defineNuxtConfig({
       config: 'server/pglite.config',
       options: { dataDir: '.data/pglite' }, // build-time defaults the config file can override
       eager: false, // create the instance at startup instead of on first use
-      socket: false, // see below
     },
+    socket: false, // development only, see below
   },
 })
 ```
@@ -99,7 +99,7 @@ export default definePGliteServerConfig({
 })
 ```
 
-A config file that exists while its side is disabled (and, for the server, has no socket) logs a warning, since it is not used.
+A config file that exists while its side is disabled (and, for the server, while the socket is off too) logs a warning, since it is not used.
 
 ### PGlite in development only
 
@@ -110,8 +110,8 @@ export default defineNuxtConfig({
   pglite: {
     server: {
       enabled: false, // no `usePGlite()`, no PGlite in the output
-      socket: { port: 5433 }, // but a Postgres URL while `nuxt dev` runs
     },
+    socket: { port: 5433 }, // but a Postgres URL while `nuxt dev` runs
   },
 })
 ```
@@ -123,14 +123,12 @@ With the server side disabled, `#pglite/server` still resolves to a stub whose `
 ```ts
 export default defineNuxtConfig({
   pglite: {
-    server: {
-      socket: { port: 5433 }, // or `true` for a random port
-    },
+    socket: { port: 5433 }, // or `true` for a random port
   },
 })
 ```
 
-While `nuxt dev` runs, the module creates the configured instance and serves it over TCP, so anything that speaks Postgres connects to it as it would to a normal server. The URL is logged, set as `DATABASE_URL` if that variable is unset (see [Environment variables](#environment-variables)), and available as `useRuntimeConfig().pglite.url`.
+While `nuxt dev` runs, the module creates the instance of the server config file and serves it over TCP, so anything that speaks Postgres connects to it as it would to a normal server. The URL is logged, set as `DATABASE_URL` if that variable is unset (see [Environment variables](#environment-variables)), and available as `useRuntimeConfig().pglite.url`.
 
 Your database code then needs no PGlite branch at all:
 
@@ -153,7 +151,7 @@ export default defineConfig({
 })
 ```
 
-Options: `host`, `port`, `path` (a directory for a Unix socket), `env`, `provider`, `maxConnections`, `idleInTransactionTimeout`.
+It is a development-only option of its own, next to `server` and `client`: it serves `server/pglite.config.ts` whether or not `server.enabled` is. Options: `host`, `port`, `path` (a directory for a Unix socket), `env`, `provider`, `maxConnections`, `idleInTransactionTimeout`, `actions` (see [Actions](#actions)).
 
 ### Environment variables
 
@@ -171,7 +169,7 @@ socket: {
 
 `socket.provider` exports what a hosting provider sets for its database instead, so code written for it reaches the socket unchanged; `env` is merged over it. `netlify` exports `NETLIFY_DB_URL` and `NETLIFY_DB_DRIVER=server` (the `pg` driver of `@netlify/database`, rather than its serverless one) and no `DATABASE_URL`, which Netlify does not set in production.
 
-Each variable is set only when still unset, so a real database configured in the environment wins. Once the dev server is up, a warning names each variable that does not hold the socket's value, set before the module or overwritten after it, e.g. by another module's database emulation, which you then disable. The variables exported are listed when the socket starts, in the DevTools tab, and passed to `process` actions as `env`.
+Each variable is set only when still unset, so a real database configured in the environment wins. Once the dev server is up, a warning names each variable that does not hold the socket's value, set before the module or overwritten after it, e.g. by another module's database emulation, which you then disable. The variables exported are listed when the socket starts, in the DevTools tab, and passed to `socket` actions as `env`.
 
 ### When `init` fails
 
@@ -259,7 +257,7 @@ afterAll(() => db.close())
 
 ### Through the socket
 
-Code that connects through a URL, rather than receiving `pg`, gets the database over the Postgres wire protocol with `socket`: `true` for a free loopback port, or the module's `socket` options (`port`, `env`, `provider`, ...). `db.url` is the connection URL and `db.env` the variables the socket resolves, as in `nuxt dev`: `DATABASE_URL` by default, `NETLIFY_DB_URL` and `NETLIFY_DB_DRIVER` with `provider: 'netlify'`. They are set on `process.env` while the database is open, only those still unset, unless `exportEnv: false`, and unset on `close()`. A fork has its own socket, on a free port, but exports nothing: pass its `env` on.
+Code that connects through a URL, rather than receiving `pg`, gets the database over the Postgres wire protocol with `socket`: `true` for a free loopback port, or the module's `socket` options but `actions` (`port`, `env`, `provider`, ...). `db.url` is the connection URL and `db.env` the variables the socket resolves, as in `nuxt dev`: `DATABASE_URL` by default, `NETLIFY_DB_URL` and `NETLIFY_DB_DRIVER` with `provider: 'netlify'`. They are set on `process.env` while the database is open, only those still unset, unless `exportEnv: false`, and unset on `close()`. A fork has its own socket, on a free port, but exports nothing: pass its `env` on.
 
 ```ts
 const db = await createTestDatabase({ config: 'server/pglite.config', socket: true })
@@ -391,10 +389,7 @@ In `nuxt dev`, and only there, the module adds a **PGlite** tab to [Nuxt DevTool
 ```ts
 export default defineNuxtConfig({
   pglite: {
-    devtools: {
-      enabled: true, // the tab, when DevTools itself is enabled
-      actions: [], // `process` actions, see below
-    },
+    devtools: true, // the tab, when DevTools itself is enabled
   },
 })
 ```
@@ -410,18 +405,16 @@ An action is a named operation you run from the tab: seeding, a reset, a migrati
 import { readFile } from 'node:fs/promises'
 
 export default definePGliteServerConfig({
-  devtools: {
-    actions: [
-      {
-        id: 'seed',
-        label: 'Seed the database',
-        description: 'Runs server/database/seed.sql',
-        run: async ({ pg }) => {
-          await pg.exec(await readFile('server/database/seed.sql', 'utf8'))
-        },
+  actions: [
+    {
+      id: 'seed',
+      label: 'Seed the database',
+      description: 'Runs server/database/seed.sql',
+      run: async ({ pg }) => {
+        await pg.exec(await readFile('server/database/seed.sql', 'utf8'))
       },
-    ],
-  },
+    },
+  ],
 })
 ```
 
@@ -430,24 +423,22 @@ export default definePGliteServerConfig({
 ```ts
 // app/pglite.config.ts
 export default definePGliteClientConfig({
-  devtools: {
-    actions: [
-      {
-        id: 'clear',
-        label: 'Clear local todos',
-        run: async ({ pg }) => (await pg.query('DELETE FROM todos')).affectedRows,
-      },
-    ],
-  },
+  actions: [
+    {
+      id: 'clear',
+      label: 'Clear local todos',
+      run: async ({ pg }) => (await pg.query('DELETE FROM todos')).affectedRows,
+    },
+  ],
 })
 ```
 
-**`process`**, in `nuxt.config.ts`, run outside the app with `{ socketUrl, env, dataDir, startSubprocess, terminal, logger }`: the place for CLIs and tools that reach the database through the socket URL, as any Postgres client would. `env` holds the variables the socket exported, to pass on. `startSubprocess` streams the command's output to a terminal in DevTools:
+**`socket`**, in `pglite.socket.actions`, run in the dev process next to the socket with `{ socketUrl, env, dataDir, startSubprocess, terminal, logger }`: the place for CLIs and tools that reach the database through the socket URL, as any Postgres client would. They exist only while the socket runs. `env` holds the variables the socket exported, to pass on. `startSubprocess` streams the command's output to a terminal in DevTools:
 
 ```ts
-import type { PGliteProcessAction } from 'nuxt-pglite'
+import type { PGliteSocketAction } from 'nuxt-pglite'
 
-const migrate: PGliteProcessAction = {
+const migrate: PGliteSocketAction = {
   id: 'migrate',
   label: 'Run migrations',
   run: ({ env, startSubprocess }) => {
@@ -459,13 +450,13 @@ const migrate: PGliteProcessAction = {
 }
 
 export default defineNuxtConfig({
-  pglite: { devtools: { actions: [migrate] } },
+  pglite: { socket: { actions: [migrate] } },
 })
 ```
 
-While the socket runs, the module adds one of its own, **Reset database** (`reset-database`): it closes the socket's instance, deletes its data directory, creates it again (`init` included) and serves it behind the same URL, so the variables stay valid; connected clients are disconnected. A failed reset leaves the socket refusing clients with the new reason. An in-memory database is recreated; a directory that does not look like PGlite's is refused. It acts on the socket's instance only: one created by `usePGlite()` in Nitro is not affected.
+The module puts one of its own first, **Reset database** (`reset-database`): it closes the socket's instance, deletes its data directory, creates it again (`init` included) and serves it behind the same URL, so the variables stay valid; connected clients are disconnected. A failed reset leaves the socket refusing clients with the new reason. An in-memory database is recreated; a directory that does not look like PGlite's is refused. It acts on the socket's instance only: one created by `usePGlite()` in Nitro is not affected.
 
-Other modules add `process` actions through a hook, called once every module is set up:
+Other modules add `socket` actions through a hook, called once every module is set up, while the socket runs:
 
 ```ts
 nuxt.hook('pglite:devtools:actions', (actions) => {
@@ -479,7 +470,7 @@ While the development socket runs, `server` actions and the SQL box run against 
 
 ### Terminal
 
-The socket's startup shows as a task in the `nuxt dev` UI. When that UI runs (it does not after a restart into a forked process) and there are `server` or `process` actions, calling the `pglite:devtools:prompt` hook opens a picker in the terminal; the chosen action runs as a task that ends with its result, as runs from the tab do for `process` actions. The UI has no way for a module to add a key of its own, so something has to call the hook, e.g. another module.
+The socket's startup shows as a task in the `nuxt dev` UI. When that UI runs (it does not after a restart into a forked process) and there are `server` or `socket` actions, calling the `pglite:devtools:prompt` hook opens a picker in the terminal; the chosen action runs as a task that ends with its result, as runs from the tab do for `socket` actions. The UI has no way for a module to add a key of its own, so something has to call the hook, e.g. another module.
 
 ## Outside Nuxt
 
