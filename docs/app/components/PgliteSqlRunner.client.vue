@@ -62,7 +62,7 @@ onMounted(run)
     <template #header>
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex items-center gap-2 text-sm text-muted">
-          <UIcon name="i-simple-icons-postgresql" class="size-4" />
+          <UIcon name="i-lucide-database" class="size-4" />
           <span>Your browser's PGlite</span>
           <UBadge v-if="elapsed !== undefined" color="neutral" variant="subtle" size="sm">
             {{ elapsed.toFixed(1) }} ms
