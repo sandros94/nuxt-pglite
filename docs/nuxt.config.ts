@@ -40,7 +40,7 @@ export default defineNuxtConfig({
 
   site: {
     // Placeholder until the production domain is settled; `NUXT_SITE_URL` overrides it.
-    url: 'https://nuxt-pglite.netlify.app',
+    url: 'https://nuxt-pglite.s94.dev',
     name: 'Nuxt PGlite',
   },
 
@@ -80,7 +80,7 @@ export default defineNuxtConfig({
   },
 
   llms: {
-    domain: 'https://nuxt-pglite.netlify.app',
+    domain: 'https://nuxt-pglite.s94.dev',
     title: 'Nuxt PGlite',
     description:
       'A Nuxt module for PGlite: an embedded Postgres on the server, a development socket for your Postgres tooling, and an in-browser database with live queries.',

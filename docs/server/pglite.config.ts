@@ -1,13 +1,8 @@
-// `definePGliteServerConfig` is provided while the socket loads this file, but
-// with the server side disabled it is not declared for the type checker: the
-// config is typed through `satisfies` until the module declares it there too.
-import type { PGliteConfig } from '#pglite/server'
-
 /**
  * The instance the development socket serves in `nuxt dev`. The server side
  * is disabled, so nothing of this file reaches the build.
  */
-export default {
+export default definePGliteServerConfig({
   init: async (pg) => {
     // The same table `drizzle-kit push` creates from `server/database/schema.ts`.
     await pg.exec(`
@@ -27,4 +22,4 @@ export default {
       },
     ],
   },
-} satisfies PGliteConfig
+})
