@@ -3,6 +3,7 @@ import type { NuxtModule } from '@nuxt/schema'
 import defu from 'defu'
 
 import { setupClient } from './client'
+import { setupDev } from './dev'
 import { setupServer } from './server'
 import type { ModuleOptions, ResolvedModuleOptions } from './types'
 
@@ -61,9 +62,9 @@ const module: NuxtModule<ModuleOptions> = defineNuxtModule<ModuleOptions>({
     const server = await setupServer(options.server, nuxt, resolver)
     await setupClient(options.client, nuxt, resolver)
 
-    // Imported on demand: a build never loads the tooling or its dependencies.
+    // Imported statically: a dynamic import would split this module into a
+    // shared chunk, from where `import.meta.url` no longer finds `runtime/`.
     if (nuxt.options.dev) {
-      const { setupDev } = await import('./dev')
       await setupDev(options, nuxt, resolver, server)
     }
   },
