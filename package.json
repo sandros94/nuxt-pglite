@@ -75,6 +75,7 @@
     "drizzle-orm": "^0.45.3",
     "happy-dom": "npm:happy-dom@^20.14.5",
     "nitro": "npm:nitro@^3.0.260903-beta",
+    "nitropack": "npm:nitropack@^2.13.4",
     "nuxt": "npm:nuxt@^4.6.0",
     "oxfmt": "npm:oxfmt@^0.72.0",
     "oxlint": "npm:oxlint@^1.87.0",
