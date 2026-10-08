@@ -25,8 +25,9 @@ describe('e2e: an app reading DATABASE_URL against a test database', async () =>
     rootDir,
     env: db.env,
     // Same workaround as the basic suite: keeps the fixture's generated
-    // server tsconfig intact for type-aware linting.
-    nuxtConfig: { nitro: { typescript: { generateTsConfig: false } } },
+    // server tsconfig intact for type-aware linting; spread for Nitro 3.
+    // oxlint-disable-next-line unicorn/no-useless-spread
+    nuxtConfig: { nitro: { typescript: { ...{ generateTsConfig: false } } } },
   })
 
   it('reads the rows the test wrote through db.pg', async () => {
