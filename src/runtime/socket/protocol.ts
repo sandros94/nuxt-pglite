@@ -440,13 +440,16 @@ function errorField(type: string, value: string): Uint8Array {
   return concatBytes(textEncoder.encode(type), cString(value))
 }
 
-// Fields: severity (S and V), SQLSTATE (C) and message (M), then a null byte.
+// Fields: severity (S and V), SQLSTATE (C), message (M) and the optional hint
+// (H), then a null byte.
 export function buildErrorResponse({
   code,
+  hint,
   message,
   severity,
 }: {
   code: string
+  hint?: string
   message: string
   severity: 'ERROR' | 'FATAL'
 }): Uint8Array {
@@ -456,6 +459,7 @@ export function buildErrorResponse({
     errorField('V', severity),
     errorField('C', code),
     errorField('M', message),
+    hint === undefined ? new Uint8Array(0) : errorField('H', hint),
     new Uint8Array(1),
   )
 }

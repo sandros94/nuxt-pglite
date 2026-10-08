@@ -6,10 +6,14 @@ import type { NuxtLogger, NuxtTerminal } from '@nuxt/kit'
 import type { HookResult } from '@nuxt/schema'
 
 import type { PGliteAction } from './runtime/core/actions'
+import type { SocketEnv } from './runtime/socket/env'
+import type { SocketProvider } from './runtime/socket/providers'
 
 export type { PGliteAction, PGliteActionInfo, PGliteActionSide } from './runtime/core/actions'
 export type { PGliteServerAction, PGliteServerActionContext } from './runtime/core/config'
 export type { PGliteClientAction, PGliteClientActionContext } from './runtime/client/config'
+export type { SocketEnv } from './runtime/socket/env'
+export type { SocketProvider } from './runtime/socket/providers'
 
 /**
  * PGlite options that survive serialization into the build, i.e. everything
@@ -34,11 +38,21 @@ export interface SocketOptions {
   /** Unix socket path; takes precedence over `host` and `port`. */
   path?: string
   /**
-   * Environment variable that receives the connection URL, `DATABASE_URL` by
-   * default. Set only when the variable is still unset, so a real database
-   * configured in the environment always wins. `false` disables it.
+   * Environment variables exported for the socket, `DATABASE_URL` by default:
+   * a name receives the connection URL; a map gives each name a function of
+   * the URL or a string exported as is. Each is set only while still unset,
+   * so a real database configured in the environment wins, and a warning
+   * names any that hold something else once the dev server is up (set
+   * before, or overwritten by another module). `false` exports nothing.
    */
-  env?: string | false
+  env?: string | false | SocketEnv
+  /**
+   * Exports the variables a hosting provider sets for its database instead of
+   * `DATABASE_URL`, so that code written for it reaches the socket unchanged;
+   * `env` is merged over them. `netlify`: `NETLIFY_DB_URL` and
+   * `NETLIFY_DB_DRIVER=server`.
+   */
+  provider?: SocketProvider
   /** Clients allowed at once; unlimited by default. */
   maxConnections?: number
   /** Milliseconds a client may sit idle inside a transaction before it is disconnected; `0` disables it. */
@@ -49,6 +63,11 @@ export interface SocketOptions {
 export interface PGliteProcessActionContext {
   /** Connection URL of the development socket, when it runs. */
   socketUrl?: string
+  /**
+   * The variables the socket exported, with their values: to pass on to a
+   * command so that it reaches the socket as the app does. Empty without it.
+   */
+  env: Record<string, string>
   /**
    * Data directory of the server side: the one the socket serves while it
    * runs, the `nuxt.config` default otherwise. Unset for an in-memory database.

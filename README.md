@@ -130,7 +130,7 @@ export default defineNuxtConfig({
 })
 ```
 
-While `nuxt dev` runs, the module creates the configured instance and serves it over TCP, so anything that speaks Postgres connects to it as it would to a normal server. The URL is logged, set as `DATABASE_URL` if that variable is unset (`socket.env` renames or disables this), and available as `useRuntimeConfig().pglite.url`.
+While `nuxt dev` runs, the module creates the configured instance and serves it over TCP, so anything that speaks Postgres connects to it as it would to a normal server. The URL is logged, set as `DATABASE_URL` if that variable is unset (see [Environment variables](#environment-variables)), and available as `useRuntimeConfig().pglite.url`.
 
 Your database code then needs no PGlite branch at all:
 
@@ -153,7 +153,29 @@ export default defineConfig({
 })
 ```
 
-Options: `host`, `port`, `path` (a directory for a Unix socket), `env`, `maxConnections`, `idleInTransactionTimeout`.
+Options: `host`, `port`, `path` (a directory for a Unix socket), `env`, `provider`, `maxConnections`, `idleInTransactionTimeout`.
+
+### Environment variables
+
+`socket.env` decides what the socket exports: a name for the URL (`'DATABASE_URL'`, the default), `false` for nothing, or a map whose values are functions of the URL or strings exported as is:
+
+```ts
+socket: {
+  env: {
+    DATABASE_URL: (url) => url,
+    DATABASE_POOL_URL: (url) => `${url}?pool=true`,
+    DB_DRIVER: 'pg',
+  },
+}
+```
+
+`socket.provider` exports what a hosting provider sets for its database instead, so code written for it reaches the socket unchanged; `env` is merged over it. `netlify` exports `NETLIFY_DB_URL` and `NETLIFY_DB_DRIVER=server` (the `pg` driver of `@netlify/database`, rather than its serverless one) and no `DATABASE_URL`, which Netlify does not set in production.
+
+Each variable is set only when still unset, so a real database configured in the environment wins. Once the dev server is up, a warning names each variable that does not hold the socket's value, set before the module or overwritten after it, e.g. by another module's database emulation, which you then disable. The variables exported are listed when the socket starts, in the DevTools tab, and passed to `process` actions as `env`.
+
+### When `init` fails
+
+The instance is created, and `init` (migrations, seeding) run, when `nuxt dev` starts. If either fails, the dev server keeps running: the error is logged, the socket listens at its usual URL with its variables exported, and every client is refused with a FATAL `57P03` (`cannot_connect_now`) error, `PGlite is not ready: <the error>`, whose hint points at the fix. The DevTools tab shows the reason. Restart `nuxt dev` once the cause is fixed (a change to the config file restarts it), or run the `reset-database` action below to start from an empty database.
 
 PGlite allows one instance per data directory, so `usePGlite()` in your routes refuses the directory the socket serves; connect through the URL instead, or give the server instance another `dataDir`. Tested with `pg`, postgres.js, `psql` and `drizzle-kit push`, on Node, Bun and Deno. One client owns the database at a time for the length of a transaction or pipeline, others queue; the process's own `db.query()` / `db.transaction()` calls queue the same way, so neither side's statements land inside the other's transaction. An owner that stays idle inside a transaction or pipeline past `idleInTransactionTimeout` is disconnected. Notifications reach the clients that ran `LISTEN` on the channel, and a client's settings, temp tables, advisory locks and subscriptions are dropped when it disconnects, as a real server would; the settings the process set before the server started are kept.
 
@@ -264,7 +286,7 @@ export default definePGliteClientConfig({
 })
 ```
 
-**`process`**, in `nuxt.config.ts`, run outside the app with `{ socketUrl, dataDir, startSubprocess, terminal, logger }`: the place for CLIs and tools that reach the database through the socket URL, as any Postgres client would. `startSubprocess` streams the command's output to a terminal in DevTools:
+**`process`**, in `nuxt.config.ts`, run outside the app with `{ socketUrl, env, dataDir, startSubprocess, terminal, logger }`: the place for CLIs and tools that reach the database through the socket URL, as any Postgres client would. `env` holds the variables the socket exported, to pass on. `startSubprocess` streams the command's output to a terminal in DevTools:
 
 ```ts
 import type { PGliteProcessAction } from 'nuxt-pglite'
@@ -272,9 +294,9 @@ import type { PGliteProcessAction } from 'nuxt-pglite'
 const migrate: PGliteProcessAction = {
   id: 'migrate',
   label: 'Run migrations',
-  run: ({ socketUrl, startSubprocess }) => {
+  run: ({ env, startSubprocess }) => {
     startSubprocess(
-      { command: 'pnpm', args: ['exec', 'some-cli', 'migrate'], env: { DATABASE_URL: socketUrl } },
+      { command: 'pnpm', args: ['exec', 'some-cli', 'migrate'], env },
       { id: 'migrate', name: 'Migrations' },
     )
   },
@@ -284,6 +306,8 @@ export default defineNuxtConfig({
   pglite: { devtools: { actions: [migrate] } },
 })
 ```
+
+While the socket runs, the module adds one of its own, **Reset database** (`reset-database`): it closes the socket's instance, deletes its data directory, creates it again (`init` included) and serves it behind the same URL, so the variables stay valid; connected clients are disconnected. A failed reset leaves the socket refusing clients with the new reason. An in-memory database is recreated; a directory that does not look like PGlite's is refused. It acts on the socket's instance only: one created by `usePGlite()` in Nitro is not affected.
 
 Other modules add `process` actions through a hook, called once every module is set up:
 
@@ -316,6 +340,8 @@ console.log(server.url)
 await server.close()
 await pglite.close()
 ```
+
+`server.refuse(reason, { hint })` disconnects the clients and refuses new ones (`57P03`, `PGlite is not ready: <reason>`) while the instance is unavailable; `server.serve(db)` serves an instance from then on, behind the same URL. `createPGliteSocketServer(null)` starts refusing until the first `serve()`.
 
 Both entries import only `@electric-sql/pglite` and Node built-ins.
 

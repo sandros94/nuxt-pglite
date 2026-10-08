@@ -18,6 +18,7 @@ import type {
   PGliteInstanceInfo,
   PGliteQueryOutcome,
 } from './runtime/core/actions'
+import { RESET_ACTION } from './server'
 import type { ServerSetup } from './server'
 import type {
   PGliteProcessAction,
@@ -50,9 +51,11 @@ export interface DevtoolsState {
     target?: ServerTarget
     /** The Nitro endpoint, under the app's base URL, when the target is `nitro`. */
     route: string
-    socket?: { url: string; connections: number }
+    socket?: { url: string; connections: number; env: Record<string, string> }
     /** The socket's instance; with the `nitro` target the page asks Nitro. */
     instance?: PGliteInstanceInfo
+    /** Why the socket refuses clients: its instance could not be created. */
+    refusal?: string
   }
   client: { enabled: boolean; eager: boolean }
   process: { actions: PGliteActionInfo[] }
@@ -85,7 +88,24 @@ export async function setupDev(
       : undefined
   const route = nuxt.options.app.baseURL.replace(/\/+$/, '') + SERVER_ROUTE
 
-  const processActions: PGliteProcessAction[] = [...options.devtools.actions]
+  // The reset is the module's own: it needs the instance, which only the
+  // socket keeps in this process.
+  const processActions: PGliteProcessAction[] = [
+    ...(socket
+      ? [
+          {
+            ...RESET_ACTION,
+            description:
+              "Closes the socket's instance, deletes its data directory and creates it again, running init. Socket only: an instance created by usePGlite() in Nitro is not affected.",
+            run: async () => {
+              await socket.reset()
+              return socket.dataDir ? `Recreated ${socket.dataDir}` : 'Recreated'
+            },
+          } satisfies PGliteProcessAction,
+        ]
+      : []),
+    ...options.devtools.actions,
+  ]
   const runner = createRunner({ nuxt, server, target, route, processActions })
 
   nuxt.hook('modules:done', async () => {
@@ -151,8 +171,13 @@ export async function setupDev(
         eager: options.server.eager,
         target,
         route,
-        socket: socket && { url: socket.server.url, connections: socket.server.connections },
+        socket: socket && {
+          url: socket.server.url,
+          connections: socket.server.connections,
+          env: socket.env,
+        },
         instance: socket && describeInstance(socket.config, 'server'),
+        refusal: socket?.failure?.message,
       },
       client: { enabled: options.client.enabled, eager: options.client.eager },
       process: { actions: describeActions(processActions, 'process') },
@@ -234,6 +259,7 @@ function createRunner({ nuxt, server, target, route, processActions }: RunnerOpt
 
   const context: PGliteProcessActionContext = {
     socketUrl: socket?.server.url,
+    env: { ...socket?.env },
     dataDir: socket ? socket.dataDir : server.dataDir,
     startSubprocess: (execaOptions, tabOptions) => startSubprocess(execaOptions, tabOptions, nuxt),
     terminal,
@@ -245,7 +271,7 @@ function createRunner({ nuxt, server, target, route, processActions }: RunnerOpt
       return runAction(processActions, 'process', id, () => context)
     }
     if (socket) {
-      return runAction(socket.config.devtools?.actions, 'server', id, () => ({ pg: socket.db }))
+      return runAction(socket.config.devtools?.actions, 'server', id, () => ({ pg: socket.use() }))
     }
     if (target === 'nitro') {
       return nitro<PGliteActionOutcome>({ action: id }).catch((error: unknown) => ({
@@ -292,7 +318,7 @@ function createRunner({ nuxt, server, target, route, processActions }: RunnerOpt
       if (!socket) {
         return Promise.resolve({ ok: false, error: 'The development socket is not running.' })
       }
-      return runQuery(() => socket.db, query)
+      return runQuery(() => socket.use(), query)
     },
 
     async prompt() {
