@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "nuxt dev",
-    "build": "nuxt build",
+    "build": "pnpm --filter nuxt-pglite build && nuxt build",
     "preview": "nuxt preview",
     "typecheck": "nuxt typecheck --checker=golar",
     "db:generate": "drizzle-kit generate",

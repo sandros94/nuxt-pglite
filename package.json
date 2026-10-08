@@ -57,6 +57,7 @@
     "dev:build": "nuxt build playground",
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground && nuxt prepare test/fixtures/basic && nuxt prepare test/fixtures/testing && nuxt prepare docs",
     "docs": "nuxt dev docs",
+    "docs:build": "pnpm build && nuxt build docs",
     "lint": "oxlint . && oxfmt --check .",
     "fmt": "oxlint --fix . && oxfmt .",
     "prepack": "pnpm build",
