@@ -232,7 +232,7 @@ importers:
         version: 3.0.260903-beta
       nitropack:
         specifier: npm:nitropack@^2.13.4
-        version: 2.13.4(@electric-sql/pglite@0.5.8)(drizzle-orm@0.45.3(@electric-sql/pglite@0.5.8)(@types/pg@8.23.1)(pg@8.23.1)(postgres@3.4.9))(rolldown@1.2.12)(srvx@1.0.5)(supports-color@10.2.2)(vite@8.3.2)
+        version: 2.13.4(@electric-sql/pglite@0.5.8)(drizzle-orm@1.0.0-rc.4(@electric-sql/pglite@0.5.8)(@types/pg@8.23.1)(pg@8.23.1)(postgres@3.4.9)(zod@4.6.5))(rolldown@1.2.12)(srvx@1.0.5)(supports-color@10.2.2)(vite@8.3.2)
       nuxt:
         specifier: npm:nuxt@^4.6.0
         version: 4.6.0(b3cf4f5db6c650ad05664cd64f6ee498)
