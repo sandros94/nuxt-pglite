@@ -118,6 +118,11 @@ export default defineNuxtConfig({
         contentFilters: [{ field: 'path', operator: 'LIKE', value: '/migrations%' }],
       },
       {
+        title: 'Testing',
+        contentCollection: 'docs',
+        contentFilters: [{ field: 'path', operator: 'LIKE', value: '/testing%' }],
+      },
+      {
         title: 'Deploy',
         contentCollection: 'docs',
         contentFilters: [{ field: 'path', operator: 'LIKE', value: '/deploy%' }],
