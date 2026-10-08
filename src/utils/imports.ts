@@ -36,3 +36,16 @@ export async function importedPackages(file: string, seen = new Set<string>()): 
   }
   return [...new Set(packages)]
 }
+
+/** `typeof import('…')` in a declaration must not name a `.ts` file. */
+export function withoutExtension(file: string): string {
+  return file.replace(/\.[cm]?[jt]sx?$/, '')
+}
+
+/** A module path usable in a generated declaration (directory or file, no extension). */
+export function corePathForTypes(
+  resolver: { resolve: (...path: string[]) => string },
+  path: string,
+): string {
+  return withoutExtension(resolver.resolve(path))
+}

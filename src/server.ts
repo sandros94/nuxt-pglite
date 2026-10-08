@@ -20,7 +20,7 @@ import { assertConfigKind, definePGliteConfig, resolveEnvConfig } from './runtim
 import type { PGliteConfig } from './runtime/core'
 import { definePGliteClientConfig } from './runtime/client/config'
 import { createPGliteSocketServer } from './runtime/socket'
-import { importedPackages } from './utils/imports'
+import { corePathForTypes, importedPackages, withoutExtension } from './utils/imports'
 import type { PGliteSocketServer } from './runtime/socket'
 import type { ServerOptions, SocketOptions } from './types'
 
@@ -82,6 +82,15 @@ export async function setupServer(
       : undefined
 
   addServerTypes(configPath, resolver)
+  // The config file is typed with the helper even when only the socket loads
+  // it, so it comes from core rather than from the (then disabled) server entry.
+  addServerImports([
+    {
+      name: 'definePGliteConfig',
+      as: 'definePGliteServerConfig',
+      from: resolver.resolve('./runtime/core'),
+    },
+  ])
   if (!options.enabled) {
     return { socket, dataDir: defaults.dataDir }
   }
@@ -114,10 +123,7 @@ export async function setupServer(
     nitro.traceDeps = [...(nitro.traceDeps ?? []), '@electric-sql/pglite*', ...imported]
   }
 
-  addServerImports([
-    { name: 'usePGlite', from: resolver.resolve('./runtime/server') },
-    { name: 'definePGliteServerConfig', from: resolver.resolve('./runtime/server') },
-  ])
+  addServerImports([{ name: 'usePGlite', from: resolver.resolve('./runtime/server') }])
 
   addNitroPlugin({
     nitro2: resolver.resolve('./runtime/server/plugins/pglite.nitro2'),
@@ -138,15 +144,15 @@ function addServerTypes(configPath: string | undefined, resolver: Resolver) {
       filename: 'types/nuxt-pglite-server.d.ts',
       getContents: () =>
         [
+          // No import statements: inside an ambient module declaration they may
+          // not name a path, but `import()` types may.
           `declare module '${CONFIG_ID}' {`,
-          `  import type { PGliteConfig, resolveEnvConfig } from '${resolver.resolve('./runtime/core')}'`,
-          `  import type { SerializablePGliteOptions } from '${resolver.resolve('./types')}'`,
-          `  export const defaults: SerializablePGliteOptions`,
+          `  export const defaults: import('${corePathForTypes(resolver, './types')}').SerializablePGliteOptions`,
           `  export const socketDataDir: string | undefined`,
           `  export const eager: boolean`,
           configPath
-            ? `  const config: ReturnType<typeof resolveEnvConfig<typeof import('${configPath}').default>>`
-            : `  const config: PGliteConfig`,
+            ? `  const config: ReturnType<typeof import('${corePathForTypes(resolver, './runtime/core')}').resolveEnvConfig<typeof import('${withoutExtension(configPath)}').default>>`
+            : `  const config: import('${corePathForTypes(resolver, './runtime/core')}').PGliteConfig`,
           `  export default config`,
           `}`,
         ].join('\n'),

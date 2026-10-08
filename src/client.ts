@@ -4,7 +4,7 @@ import type { Resolver } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 
 import type { ClientOptions } from './types'
-import { importedPackages } from './utils/imports'
+import { corePathForTypes, importedPackages, withoutExtension } from './utils/imports'
 
 const CONFIG_ID = '#pglite/client-config'
 
@@ -22,12 +22,12 @@ export async function setupClient(options: ClientOptions, nuxt: Nuxt, resolver: 
       filename: 'types/nuxt-pglite-client.d.ts',
       getContents: () =>
         [
+          // No import statements: inside an ambient module declaration they may
+          // not name a path, but `import()` types may.
           `declare module '${CONFIG_ID}' {`,
-          `  import type { PGliteClientConfig } from '${resolver.resolve('./runtime/client/config')}'`,
-          `  import type { resolveEnvConfig } from '${resolver.resolve('./runtime/core')}'`,
           configPath && options.enabled
-            ? `  const config: ReturnType<typeof resolveEnvConfig<typeof import('${configPath}').default>>`
-            : `  const config: PGliteClientConfig`,
+            ? `  const config: ReturnType<typeof import('${corePathForTypes(resolver, './runtime/core')}').resolveEnvConfig<typeof import('${withoutExtension(configPath)}').default>>`
+            : `  const config: import('${corePathForTypes(resolver, './runtime/client/config')}').PGliteClientConfig`,
           `  export default config`,
           `}`,
         ].join('\n'),
@@ -94,7 +94,13 @@ export async function setupClient(options: ClientOptions, nuxt: Nuxt, resolver: 
         `export default resolveEnvConfig({ ...defaults, ...userConfig }, ${JSON.stringify({ dev: nuxt.options.dev, test: nuxt.options.test })})`,
       ].join('\n'),
   })
-  nuxt.options.alias[CONFIG_ID] = template.dst
+  // A bundler alias only: through `nuxt.options.alias` TypeScript would map
+  // the specifier to the untyped template and lose the declaration above.
+  nuxt.options.vite.resolve ||= {}
+  const { alias } = nuxt.options.vite.resolve
+  nuxt.options.vite.resolve.alias = isAliasMap(alias)
+    ? { ...alias, [CONFIG_ID]: template.dst }
+    : [...(alias ?? []), { find: CONFIG_ID, replacement: template.dst }]
 
   addImports(
     ['usePGlite', 'useLiveQuery', 'useLiveIncrementalQuery', 'definePGliteClientConfig'].map(
@@ -108,4 +114,8 @@ export async function setupClient(options: ClientOptions, nuxt: Nuxt, resolver: 
   if (options.eager) {
     addPlugin({ mode: 'client', src: resolver.resolve('./runtime/client/plugins/eager.client') })
   }
+}
+
+function isAliasMap(alias: unknown): alias is Record<string, string> {
+  return typeof alias === 'object' && alias !== null && !Array.isArray(alias)
 }
