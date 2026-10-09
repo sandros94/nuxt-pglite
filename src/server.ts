@@ -7,6 +7,7 @@ import {
   addServerTemplate,
   addTypeTemplate,
   findPath,
+  getNitroVersion,
   importModule,
   useLogger,
   useTerminal,
@@ -132,8 +133,7 @@ export async function setupServer(
   // PGlite loads its wasm and the extension bundles from files next to its
   // code, which a bundled copy no longer has. Nitro 2 keeps dependencies
   // external; Nitro 3 bundles them unless traced as whole packages.
-  // oxlint-disable-next-line no-underscore-dangle -- Nuxt's own key
-  if (nuxt.options._nitroMajor !== 2) {
+  if (getNitroVersion(nuxt) !== 2) {
     const nitro: { preset?: string; traceDeps?: (string | RegExp)[] } = nuxt.options.nitro
     const imported = configPath ? await importedPackages(configPath) : []
     nitro.traceDeps = [...(nitro.traceDeps ?? []), '@electric-sql/pglite*', ...imported]

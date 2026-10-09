@@ -1,9 +1,13 @@
 import { readFile } from 'node:fs/promises'
-import { startSubprocess } from '@nuxt/devtools-kit'
+import {
+  addCustomTab,
+  extendServerRpc,
+  onDevToolsInitialized,
+  startSubprocess,
+} from '@nuxt/devtools-kit'
 import { addDevServerHandler, addPlugin, addServerHandler, useLogger, useTerminal } from '@nuxt/kit'
 import type { Resolver } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
-import type { NuxtDevtoolsServerContext } from '@nuxt/devtools-kit/types'
 
 import {
   describeActions,
@@ -119,36 +123,40 @@ export async function setupDev(
     return
   }
 
-  // Through the host's hooks rather than the kit's wrappers, which are what
-  // those wrappers call. DevTools 4 replaces this with a dock API and an
-  // authorised RPC; its beta could not be driven to completion here, so the
-  // move waits for a stable release.
-  nuxt.hook('devtools:customTabs', (tabs) => {
-    tabs.push({
+  /**
+   * DevTools 3, which Nuxt 4 installs. DevTools 4 replaces the tab and the
+   * namespaced RPC with a dock API and an authorised RPC; the move waits for
+   * Nuxt to depend on a stable release.
+   */
+  addCustomTab(
+    {
       name: 'nuxt-pglite',
       title: 'PGlite',
       icon: 'simple-icons:postgresql',
       view: { type: 'iframe', src: PAGE_ROUTE },
-    })
-  })
+    },
+    nuxt,
+  )
 
   // Read on first request: the page is a single static file, no build step.
   let page: Promise<string> | undefined
   addDevServerHandler({
     route: PAGE_ROUTE,
-    handler: async () =>
-      new Response(
-        await (page ??= readFile(resolver.resolve('./runtime/devtools/page.html'), 'utf8')),
-        {
-          headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
-        },
-      ),
+    handler: {
+      nuxt: async () =>
+        new Response(
+          await (page ??= readFile(resolver.resolve('./runtime/devtools/page.html'), 'utf8')),
+          {
+            headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
+          },
+        ),
+    },
   })
 
   if (target === 'nitro') {
     addServerHandler({
       route: SERVER_ROUTE,
-      handler: resolver.resolve('./runtime/server/handlers/devtools'),
+      handler: { nuxt: resolver.resolve('./runtime/server/handlers/devtools') },
       env: 'dev',
     })
   }
@@ -171,13 +179,9 @@ export async function setupDev(
     query: (query) => runner.query(query),
   }
 
-  // DevTools 4 registers functions on its Vite DevTools context; DevTools 3
-  // has the namespaced RPC. The host decides which hook fires.
-  nuxt.hook('devtools:initialized', () => {
-    // The host sets `nuxt.devtools` once initialised; the kit types it loosely.
-    const host: { devtools?: NuxtDevtoolsServerContext; options: unknown } = nuxt
-    host.devtools?.extendServerRpc<object, DevtoolsRpc>(RPC_NAMESPACE, functions)
-  })
+  onDevToolsInitialized(() => {
+    extendServerRpc<object, DevtoolsRpc>(RPC_NAMESPACE, functions, nuxt)
+  }, nuxt)
 }
 
 /** What the devtools tooling reads of the running socket. */
@@ -244,7 +248,10 @@ export function devtoolsState({
   }
 }
 
-/** Mirrors the rule Nuxt itself installs DevTools by. */
+/**
+ * Mirrors the rule Nuxt itself installs DevTools by. Not `hasNuxtModule()`:
+ * Nuxt installs DevTools after the user's modules, so it is not listed yet.
+ */
 function isDevtoolsEnabled(nuxt: Nuxt) {
   const { builder, devtools } = nuxt.options
   if (builder !== '@nuxt/vite-builder') {
