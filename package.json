@@ -77,25 +77,24 @@
     "pathe": "npm:pathe@^2.0.3"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "npm:@electric-sql/pglite@^0.5.8",
-    "@electric-sql/pglite-sync": "npm:@electric-sql/pglite-sync@^0.6.9",
+    "@electric-sql/pglite": "catalog:",
     "@nuxt/module-builder": "npm:@nuxt/module-builder@^1.0.3",
     "@nuxt/schema": "npm:@nuxt/schema@^4.6.0",
     "@nuxt/test-utils": "npm:@nuxt/test-utils@4.3.3",
     "@playwright/test": "npm:@playwright/test@^1.63.0",
-    "@types/pg": "^8.23.1",
+    "@types/pg": "catalog:",
     "@vue/test-utils": "npm:@vue/test-utils@^2.5.1",
     "automd": "^0.4.3",
-    "drizzle-kit": "npm:drizzle-kit@1.0.0-rc.4",
-    "drizzle-orm": "npm:drizzle-orm@1.0.0-rc.4",
+    "drizzle-kit": "catalog:",
+    "drizzle-orm": "catalog:",
     "happy-dom": "npm:happy-dom@^20.14.5",
-    "nitro": "npm:nitro@^3.0.260903-beta",
+    "nitro": "npm:nitro@^3.0.261029-rc",
     "nitropack": "npm:nitropack@^2.13.4",
-    "nuxt": "npm:nuxt@^4.6.0",
+    "nuxt": "catalog:",
     "oxfmt": "npm:oxfmt@^0.72.0",
     "oxlint": "npm:oxlint@^1.87.0",
     "oxlint-tsgolint": "npm:oxlint-tsgolint@~7.0.2003",
-    "pg": "^8.23.1",
+    "pg": "catalog:",
     "playwright-core": "npm:playwright-core@^1.63.0",
     "postgres": "^3.4.9",
     "simple-git-hooks": "npm:simple-git-hooks@^2.14.0",
@@ -105,7 +104,7 @@
     "vue-tsc": "npm:vue-tsc@^3.3.12"
   },
   "peerDependencies": {
-    "@electric-sql/pglite": "^0.5.8"
+    "@electric-sql/pglite": "^0.5.13"
   },
   "peerDependenciesMeta": {
     "@electric-sql/pglite": {

@@ -4,7 +4,13 @@ packages:
   - test/fixtures/*
 
 catalog:
+  '@electric-sql/pglite': npm:@electric-sql/pglite@^0.5.13
+  "@electric-sql/pglite-pgvector": npm:@electric-sql/pglite-pgvector@^0.0.14
+  "@types/pg": npm:@types/pg@^8.23.1
+  drizzle-kit: npm:drizzle-kit@1.0.0-rc.5
+  drizzle-orm: npm:drizzle-orm@1.0.0-rc.5
   nuxt: npm:nuxt@^4.6.0
+  pg: npm:pg@^8.23.1
   vue: npm:vue@^3.5.43
 
 overrides:
@@ -15,6 +21,7 @@ overrides:
 minimumReleaseAgeStrict: true
 
 minimumReleaseAgeExclude:
+  - 'nitro'
   - 'nuxt'
   - '@nuxt/*'
 
