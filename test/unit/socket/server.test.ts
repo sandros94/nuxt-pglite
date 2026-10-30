@@ -647,6 +647,33 @@ describe('createPGliteSocketServer lifecycle and options', () => {
     ])
   })
 
+  // PGlite's `close()` takes the locks the backend holds for a client: one
+  // left held would keep the instance from ever closing.
+  it('leaves the locks free once closed while a client waits on the app', async () => {
+    const own = new PGlite()
+    const server = await createPGliteSocketServer(own).listen()
+    const client = await connectClient(server)
+
+    client.on('error', () => {})
+
+    let end!: () => void
+    const held = new Promise<void>((resolve) => {
+      end = resolve
+    })
+    const transaction = own.transaction(() => held)
+    const waiting = client.query('SELECT 1').catch((error: unknown) => error)
+
+    // The client's query is now waiting on the app's transaction.
+    await sleep(50)
+    const closed = server.close()
+    end()
+
+    await Promise.all([transaction, closed])
+    await expect(waiting).resolves.toBeInstanceOf(Error)
+    await own.close()
+    expect(own.closed).toBe(true)
+  })
+
   it('refuses clients beyond maxConnections', async () => {
     const server = await createServer({ maxConnections: 1 }).listen()
     const first = await connectClient(server)

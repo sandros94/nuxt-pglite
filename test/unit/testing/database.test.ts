@@ -141,6 +141,30 @@ describe('createTestDatabase', () => {
     expect(process.env.DATABASE_URL).toBeUndefined()
   })
 
+  it('forks once a transaction open over the socket ends, with its writes', async () => {
+    const db = await createTestDatabase({ config, socket: true })
+    const client = new Client({ connectionString: db.url })
+    await client.connect()
+    try {
+      await client.query('BEGIN')
+      await client.query("INSERT INTO items VALUES ('committed')")
+
+      let forked = false
+      const forking = db.fork({ socket: false }).finally(() => {
+        forked = true
+      })
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(forked).toBe(false)
+
+      await client.query('COMMIT')
+      const fork = await forking
+      expect(await names(fork)).toEqual(['committed'])
+    } finally {
+      await client.end()
+      await db.close()
+    }
+  })
+
   it('leaves a variable that is already set alone', async () => {
     vi.stubEnv('DATABASE_URL', 'postgres://elsewhere/db')
     const db = await createTestDatabase({ socket: true })
