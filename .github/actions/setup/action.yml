@@ -1,5 +1,5 @@
 name: Setup
-description: Set up pnpm + Node and install dependencies (postinstall runs nuxt prepare)
+description: Set up pnpm + Node, install dependencies and prepare the development build
 
 runs:
   using: composite
@@ -15,4 +15,8 @@ runs:
 
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
+      shell: bash
+
+    - name: Prepare development build
+      run: pnpm dev:prepare
       shell: bash
