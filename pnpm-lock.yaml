@@ -379,7 +379,7 @@ importers:
         specifier: npm:typescript@^6.0.3
         version: 6.0.3
 
-  playground:
+  playgrounds/basic:
     dependencies:
       '@electric-sql/pglite':
         specifier: 'catalog:'
@@ -395,7 +395,7 @@ importers:
         version: 4.6.0(ed595aeac44f411f44c2f5b8bbc1e200)
       nuxt-pglite:
         specifier: workspace:*
-        version: link:..
+        version: link:../..
       pg:
         specifier: 'catalog:'
         version: 8.23.1

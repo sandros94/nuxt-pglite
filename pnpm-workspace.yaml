@@ -1,6 +1,6 @@
 packages:
   - docs
-  - playground
+  - 'playgrounds/*'
   - test/fixtures/*
 
 catalog:

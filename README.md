@@ -83,8 +83,8 @@ Guides, recipes and the reference live at **[nuxt-pglite.s94.dev](https://nuxt-p
 - Clone this repository
 - Install latest LTS version of [Node.js](https://nodejs.org/en/)
 - Enable [Corepack](https://github.com/nodejs/corepack) using `corepack enable`
-- Install dependencies using `pnpm install` (stubs `dist/`, prepares the playground and the docs)
-- Develop with `pnpm dev` (playground) or `pnpm run docs` (documentation site)
+- Install dependencies using `pnpm install`, then `pnpm dev:prepare` (stubs `dist/`, prepares the playgrounds, the test fixtures and the docs)
+- Develop with `pnpm dev` (`playgrounds/basic`), `pnpm -F ./playgrounds/<name> dev` (any other playground) or `pnpm run docs` (documentation site)
 - Run tests using `pnpm test`; `pnpm lint`, `pnpm fmt` and `pnpm typecheck` for the rest
 - Build with `pnpm build`; `pnpm dev:prepare` restores the stub afterwards
 
