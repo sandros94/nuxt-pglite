@@ -1,18 +1,43 @@
 {
-  "version": "8",
+  "type": "base",
+  "version": "9",
   "dialect": "postgres",
   "id": "ef413a28-0d6b-4bce-aa05-7928e7659861",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "visits"
+      ],
+      "writes": [
+        "s|tbl|public.visits",
+        "n|tbl|public.visits",
+        "e|tbl|public.visits",
+        "n|rel|public.visits",
+        "n|type|public.visits",
+        "n|rel|public.visits_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    }
+  ],
   "ddl": [
     {
-      "isRlsEnabled": false,
+      "schema": "public",
       "name": "visits",
-      "entityType": "tables",
-      "schema": "public"
+      "isRlsEnabled": false,
+      "entityType": "tables"
     },
     {
+      "schema": "public",
+      "table": "visits",
+      "name": "id",
       "type": "serial",
       "typeSchema": null,
       "notNull": true,
@@ -20,12 +45,12 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "visits"
+      "entityType": "columns"
     },
     {
+      "schema": "public",
+      "table": "visits",
+      "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -33,21 +58,17 @@
       "default": "now()",
       "generated": null,
       "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "visits"
+      "entityType": "columns"
     },
     {
+      "schema": "public",
+      "table": "visits",
+      "name": "visits_pkey",
       "columns": [
         "id"
       ],
       "nameExplicit": false,
-      "name": "visits_pkey",
-      "schema": "public",
-      "table": "visits",
       "entityType": "pks"
     }
-  ],
-  "renames": []
+  ]
 }
