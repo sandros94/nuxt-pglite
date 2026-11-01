@@ -24,7 +24,7 @@
     "@cloudflare/workers-types": "npm:@cloudflare/workers-types@^5.20261031.1",
     "@electric-sql/pglite": "catalog:",
     "@golar/vue": "npm:@golar/vue@^0.1.10",
-    "@nuxt/test-utils": "npm:@nuxt/test-utils@4.3.3",
+    "@nuxt/test-utils": "npm:@nuxt/test-utils@4.3.4",
     "@types/node": "npm:@types/node@^24.19.1",
     "@types/pg": "catalog:",
     "golar": "npm:golar@^0.1.10",

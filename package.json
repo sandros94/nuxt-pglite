@@ -78,9 +78,9 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "catalog:",
-    "@nuxt/module-builder": "npm:@nuxt/module-builder@^1.0.3",
-    "@nuxt/schema": "npm:@nuxt/schema@^4.6.0",
-    "@nuxt/test-utils": "npm:@nuxt/test-utils@4.3.3",
+    "@nuxt/module-builder": "npm:@nuxt/module-builder@1.0.3",
+    "@nuxt/schema": "npm:@nuxt/schema@4.6.0",
+    "@nuxt/test-utils": "npm:@nuxt/test-utils@4.3.4",
     "@playwright/test": "npm:@playwright/test@^1.63.0",
     "@types/pg": "catalog:",
     "@vue/test-utils": "npm:@vue/test-utils@^2.5.1",
@@ -100,7 +100,7 @@
     "simple-git-hooks": "npm:simple-git-hooks@^2.14.0",
     "typescript": "npm:typescript@^6.0.3",
     "vitest": "npm:vitest@^5.0.3",
-    "vue": "npm:vue@^3.5.43",
+    "vue": "npm:vue@3.5.44",
     "vue-tsc": "npm:vue-tsc@^3.3.12"
   },
   "peerDependencies": {
