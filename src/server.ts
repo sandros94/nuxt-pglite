@@ -1,6 +1,5 @@
-import { mkdirSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { dirname, isAbsolute, relative, resolve } from 'pathe'
+import { isAbsolute, relative, resolve } from 'pathe'
 import {
   addNitroPlugin,
   addServerImports,
@@ -24,17 +23,13 @@ import { importServerConfig } from './runtime/core/load'
 import { createPGliteSocketServer } from './runtime/socket/server'
 import { resolveSocketEnv } from './runtime/socket/env'
 import { createInstance } from './runtime/core/instance'
+import { createDataDirParents, hostDataDir } from './utils/data-dir'
 import { resetInstance } from './instance'
 import { corePathForTypes, importedPackages, withoutExtension } from './utils/imports'
 import type { PGliteSocketServer } from './runtime/socket/server'
 import type { ServerOptions, SocketOptions } from './types'
 
 const CONFIG_ID = '#pglite/server-config'
-
-/** Data directories PGlite handles itself, which must not be resolved as paths. */
-function isPathDataDir(dataDir: string) {
-  return !/^[a-z-]+:\/\//.test(dataDir)
-}
 
 /** What the development tooling needs from the server side. */
 export interface ServerSetup {
@@ -58,10 +53,9 @@ export async function setupServer(
   // from the config file is read at runtime and so is relative to the working
   // directory, like Nitro's own storage.
   const defaults = { dataDir: '.data/pglite', ...options.options }
-  if (isPathDataDir(defaults.dataDir)) {
-    defaults.dataDir = resolve(nuxt.options.rootDir, defaults.dataDir)
-    // PGlite creates the directory itself, but not its parents.
-    mkdirSync(dirname(defaults.dataDir), { recursive: true })
+  const path = hostDataDir(defaults.dataDir)
+  if (path) {
+    defaults.dataDir = resolve(nuxt.options.rootDir, path)
   }
 
   const configPath = (await findPath(options.config, { cwd: nuxt.options.rootDir })) ?? undefined
@@ -242,14 +236,16 @@ async function startSocket(
 
   let db: PGlite | undefined
   let failure: Error | undefined
-  await createInstance(PGlite, config).then(
-    (created) => {
-      db = created
-    },
-    (error: unknown) => {
-      failure = asError(error)
-    },
-  )
+  await createDataDirParents(config)
+    .then(() => createInstance(PGlite, config))
+    .then(
+      (created) => {
+        db = created
+      },
+      (error: unknown) => {
+        failure = asError(error)
+      },
+    )
 
   const server = createPGliteSocketServer(db ?? null, {
     ...serverOptions,

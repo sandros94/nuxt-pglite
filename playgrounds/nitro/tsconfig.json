@@ -3,5 +3,12 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "include": ["nitro.config.ts", "modules/**/*.ts", "server/**/*.ts", "types/**/*.d.ts"]
+  "include": [
+    "nitro.config.ts",
+    "vitest.config.ts",
+    "modules/**/*.ts",
+    "server/**/*.ts",
+    "test/**/*.ts",
+    "types/**/*.d.ts"
+  ]
 }

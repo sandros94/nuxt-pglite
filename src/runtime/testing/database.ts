@@ -1,3 +1,6 @@
+import { mkdir } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
+
 import type { Extensions, PGlite } from '@electric-sql/pglite'
 
 import type { PGliteConfig, PGliteInstanceFor } from '../core/config'
@@ -103,9 +106,26 @@ export async function createTestDatabase(options: TestDatabaseOptions = {}): Pro
   // `dataDir`: the test database would write to the app's data.
   const { fs: _fs, ...rest } = loaded
   const config: PGliteConfig = { ...rest, dataDir }
+  await createDataDirParents(dataDir)
   const pg = await createInstance(PGlite, config)
 
   return openDatabase(PGlite, config, pg, { socket, exportEnv, dispose: true })
+}
+
+/** The URL schemes PGlite serves from memory or a browser filesystem rather than the disk. */
+const NOT_ON_DISK = /^(?:memory|idb|opfs-ahp|memfs2opfs):\/\//
+
+/**
+ * Creates the missing parents of a `dataDir` on disk, read as PGlite reads it
+ * (as `hostDataDir` in `src/utils/data-dir.ts` does): PGlite creates the
+ * directory itself, but not its parents.
+ */
+async function createDataDirParents(dataDir: string): Promise<void> {
+  const path = dataDir.startsWith('file://') ? dataDir.slice('file://'.length) : dataDir
+  if (path && !NOT_ON_DISK.test(path)) {
+    // Resolved as PGlite resolves it, from the working directory.
+    await mkdir(dirname(resolve(path)), { recursive: true })
+  }
 }
 
 interface OpenOptions {

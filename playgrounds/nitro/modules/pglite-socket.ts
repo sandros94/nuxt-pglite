@@ -6,8 +6,10 @@ import type { NitroModule } from 'nitro/types'
 // Relative rather than `nuxt-pglite/core` and `nuxt-pglite/socket`: in this
 // monorepo the module is stubbed, and its `dist` has no built files for the
 // package exports to reach.
-import { createPGliteProvider, definePGliteConfig } from '../../../src/runtime/core'
+import { createPGliteProvider } from '../../../src/runtime/core'
 import { createPGliteSocketServer } from '../../../src/runtime/socket'
+
+import config from '../server/pglite.config'
 
 /**
  * Serves PGlite over the Postgres wire protocol while `nitro dev` runs, from
@@ -17,24 +19,15 @@ import { createPGliteSocketServer } from '../../../src/runtime/socket'
 export default {
   name: 'pglite-socket',
   async setup(nitro) {
-    if (!nitro.options.dev) {
+    // Under vitest, Nitro runs in dev mode too, but the suite brings its own
+    // database: started here, this socket would claim `DATABASE_URL` first.
+    if (!nitro.options.dev || process.env.VITEST) {
       return
     }
     const dataDir = resolve(nitro.options.rootDir, '.data/pglite')
     // PGlite creates `dataDir` itself, but not its parents.
     await mkdir(dirname(dataDir), { recursive: true })
-    const pglite = createPGliteProvider(
-      definePGliteConfig({
-        dataDir,
-        init: (pg) =>
-          pg.exec(`
-            CREATE TABLE IF NOT EXISTS visits (
-              id serial PRIMARY KEY,
-              created_at timestamptz NOT NULL DEFAULT now()
-            )
-          `),
-      }),
-    )
+    const pglite = createPGliteProvider({ ...config, dataDir })
     const server = await createPGliteSocketServer(await pglite.use(), { port: 5457 }).listen()
     process.env.DATABASE_URL ||= server.url
     nitro.logger.info(`PGlite socket listening at ${server.url}`)

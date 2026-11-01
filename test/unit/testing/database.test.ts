@@ -79,6 +79,21 @@ describe('createTestDatabase', () => {
     expect(db.pg.closed).toBe(true)
   })
 
+  it('creates the missing parents of a `dataDir` on disk', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'nuxt-pglite-testing-'))
+    try {
+      const db = await createTestDatabase({ config, dataDir: join(directory, 'a', 'b', 'pglite') })
+      try {
+        await db.pg.query("INSERT INTO items VALUES ('on disk')")
+        expect(await names(db)).toEqual(['on disk'])
+      } finally {
+        await db.close()
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
   it('forks isolated copies of the current state, without running init again', async () => {
     const init = vi.fn<NonNullable<typeof config.init>>(config.init)
     const db = await createTestDatabase({ config: { ...config, init } })

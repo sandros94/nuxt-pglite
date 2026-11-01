@@ -5,6 +5,7 @@ import type { PGlite } from '@electric-sql/pglite'
 import type { PGliteConfig } from './runtime/core/config'
 import { createInstance } from './runtime/core/instance'
 import type { PGliteClass } from './runtime/core/instance'
+import { hostDataDir } from './utils/data-dir'
 
 /**
  * Recreates the instance from an empty data directory, `init` included:
@@ -32,12 +33,12 @@ export async function resetInstance(
  * files.
  */
 async function removableDataDir(dataDir: string | undefined): Promise<string | undefined> {
-  const path = dataDir?.startsWith('file://') ? dataDir.slice('file://'.length) : dataDir
   // In memory: nothing to remove, recreating the instance empties it.
-  if (!path || path.startsWith('memory://')) {
+  if (!dataDir || dataDir.startsWith('memory://')) {
     return undefined
   }
-  if (/^[a-z-]+:\/\//.test(path)) {
+  const path = hostDataDir(dataDir)
+  if (!path) {
     throw new Error(
       `The database is not stored on disk (\`dataDir\`: ${dataDir}), so it cannot be reset here.`,
     )

@@ -59,9 +59,11 @@ describe('createInstance and resetInstance', () => {
 
   it('refuses a browser filesystem before releasing anything', async () => {
     const release = vi.fn<() => Promise<void>>(async () => {})
-    await expect(resetInstance(PGlite, { dataDir: 'idb://app' }, release)).rejects.toThrow(
-      /not stored on disk/,
-    )
+    for (const dataDir of ['idb://app', 'opfs-ahp://app', 'memfs2opfs://app']) {
+      await expect(resetInstance(PGlite, { dataDir }, release)).rejects.toThrow(
+        /not stored on disk/,
+      )
+    }
     expect(release).not.toHaveBeenCalled()
   })
 
