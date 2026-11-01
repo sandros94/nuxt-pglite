@@ -36,6 +36,13 @@ export interface TestDatabaseOptions<E extends Extensions = {}> {
   alias?: Record<string, string>
 
   /**
+   * The directory a relative `config` path resolves from: the app's root, as
+   * `nuxt.options.rootDir` holds it; see `loadPGliteConfig`.
+   * @default process.cwd()
+   */
+  rootDir?: string
+
+  /**
    * Overrides `config.dataDir`: in memory by default, so that a suite never
    * touches the app's data.
    * @default 'memory://'
@@ -92,14 +99,14 @@ export function createTestDatabase<E extends Extensions = {}>(
 // `E` only types the instance handed out; the implementation works on the
 // config as PGlite and the socket see it.
 export async function createTestDatabase(options: TestDatabaseOptions = {}): Promise<TestDatabase> {
-  const { alias, config: input = {}, dataDir = 'memory://', socket = false } = options
+  const { alias, rootDir, config: input = {}, dataDir = 'memory://', socket = false } = options
   const { exportEnv = Boolean(socket) } = options
 
   const [{ PGlite }, loaded] = await Promise.all([
     // Deferred, like the provider's: `@electric-sql/pglite` is an optional peer.
     import('@electric-sql/pglite'),
     typeof input === 'string'
-      ? loadPGliteConfig(input, { alias })
+      ? loadPGliteConfig(input, { alias, rootDir })
       : resolveEnvConfig(input, TEST_ENV),
   ])
   // A custom `fs` holds the app's own data directory and takes the place of

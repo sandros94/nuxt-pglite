@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { MemoryFS } from '@electric-sql/pglite'
 import type { PGlite } from '@electric-sql/pglite'
@@ -49,6 +50,9 @@ async function freePort(): Promise<number> {
   return address.port
 }
 
+// An app's root other than the working directory, with `server/pglite.config.ts`.
+const fixture = fileURLToPath(new URL('../../fixtures/testing', import.meta.url))
+
 // None of these is set by the suite's environment; each test starts without them.
 const VARIABLES = ['DATABASE_URL', 'NETLIFY_DB_URL', 'NETLIFY_DB_DRIVER']
 
@@ -91,6 +95,16 @@ describe('createTestDatabase', () => {
       }
     } finally {
       await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('resolves a relative `config` against `rootDir`', async () => {
+    const db = await createTestDatabase({ config: 'server/pglite.config', rootDir: fixture })
+    try {
+      const { rows } = await db.pg.query("SELECT to_regclass('items') IS NOT NULL AS found")
+      expect(rows).toEqual([{ found: true }])
+    } finally {
+      await db.close()
     }
   })
 
@@ -379,7 +393,7 @@ describe('definePGliteGlobalSetup', () => {
     const provide = vi.fn<(key: string, value: { url: string }) => void>()
     const setup = definePGliteGlobalSetup({ config })
 
-    const teardown = await setup({ provide })
+    const teardown = await setup({ provide, config: { root: process.cwd() } })
     const [[key, value] = []] = provide.mock.calls
     expect(key).toBe('pglite')
     expect(value).toEqual({ url: process.env.DATABASE_URL, env: { DATABASE_URL: value?.url } })
@@ -387,5 +401,21 @@ describe('definePGliteGlobalSetup', () => {
 
     await teardown()
     expect(process.env.DATABASE_URL).toBeUndefined()
+  })
+
+  it("resolves a relative `config` against the project's root", async () => {
+    vi.stubEnv('DATABASE_URL', undefined)
+    const provide = vi.fn<(key: string, value: { url: string }) => void>()
+    const setup = definePGliteGlobalSetup({ config: 'server/pglite.config' })
+
+    const teardown = await setup({ provide, config: { root: fixture } })
+    try {
+      const [[, value] = []] = provide.mock.calls
+      expect(
+        await queryOver(value!.url, "SELECT to_regclass('items') IS NOT NULL AS found"),
+      ).toEqual([{ found: true }])
+    } finally {
+      await teardown()
+    }
   })
 })

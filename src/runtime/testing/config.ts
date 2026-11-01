@@ -20,23 +20,30 @@ export interface LoadPGliteConfigOptions {
    * holds them: name to absolute path.
    */
   alias?: Record<string, string>
+
+  /**
+   * The directory a relative `path` resolves from: the app's root, as
+   * `nuxt.options.rootDir` holds it.
+   * @default process.cwd()
+   */
+  rootDir?: string
 }
 
 /**
  * Loads the app's server config file (`server/pglite.config.ts`) as the
- * module does: relative to `process.cwd()`, extension optional, with
+ * module does: relative to `rootDir`, extension optional, with
  * `definePGliteServerConfig` available as a global, and with the `$test`
  * overrides applied. The file is imported through jiti, so TypeScript works
  * on any runtime, and `alias` resolves the imports the app's aliases would.
  */
 export async function loadPGliteConfig(
   path: string,
-  { alias }: LoadPGliteConfigOptions = {},
+  { alias, rootDir = process.cwd() }: LoadPGliteConfigOptions = {},
 ): Promise<PGliteConfig> {
-  const file = await findConfigFile(isAbsolute(path) ? path : resolve(process.cwd(), path))
+  const file = await findConfigFile(isAbsolute(path) ? path : resolve(rootDir, path))
   // Uncached: a file edited between two loads in the same process (a watch
   // run) is read again rather than handed back as it was.
-  const jiti = createJiti(process.cwd(), { alias, moduleCache: false })
+  const jiti = createJiti(rootDir, { alias, moduleCache: false })
   const config = await importServerConfig(file, (target) => jiti.import(target))
   return resolveEnvConfig(config, TEST_ENV)
 }
