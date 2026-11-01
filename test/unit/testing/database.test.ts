@@ -9,6 +9,7 @@ import type { PGlite } from '@electric-sql/pglite'
 import { citext } from '@electric-sql/pglite/contrib/citext'
 import { Client } from 'pg'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { MockInstance } from 'vitest'
 
 import { definePGliteConfig } from '../../../src/runtime/core/config'
 import { createTestDatabase, loadPGliteConfig } from '../../../src/runtime/testing'
@@ -57,14 +58,18 @@ const fixture = fileURLToPath(new URL('../../fixtures/testing', import.meta.url)
 const VARIABLES = ['DATABASE_URL', 'NETLIFY_DB_URL', 'NETLIFY_DB_DRIVER']
 
 describe('createTestDatabase', () => {
+  let warn: MockInstance<typeof console.warn>
+
   beforeEach(() => {
     for (const name of VARIABLES) {
       vi.stubEnv(name, undefined)
     }
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
 
   afterEach(() => {
     vi.unstubAllEnvs()
+    warn.mockRestore()
   })
 
   it('creates an in-memory instance from an inline config, init included', async () => {
@@ -151,6 +156,7 @@ describe('createTestDatabase', () => {
       expect(db.url).toMatch(/^postgres(ql)?:\/\/.+@127\.0\.0\.1:\d+\//)
       expect(db.env).toEqual({ DATABASE_URL: db.url })
       expect(process.env.DATABASE_URL).toBe(db.url)
+      expect(warn).not.toHaveBeenCalled()
 
       await db.pg.query("INSERT INTO items VALUES ('over the wire')")
       expect(await queryOver(db.url!, 'SELECT name FROM items')).toEqual([
@@ -194,12 +200,14 @@ describe('createTestDatabase', () => {
     }
   })
 
-  it('leaves a variable that is already set alone', async () => {
+  it('leaves a variable that is already set alone, with a warning', async () => {
     vi.stubEnv('DATABASE_URL', 'postgres://elsewhere/db')
     const db = await createTestDatabase({ socket: true })
     try {
       expect(db.env.DATABASE_URL).toBe(db.url)
       expect(process.env.DATABASE_URL).toBe('postgres://elsewhere/db')
+      expect(warn).toHaveBeenCalledOnce()
+      expect(warn).toHaveBeenCalledWith(expect.stringMatching(/`DATABASE_URL`.*`db\.env`/))
     } finally {
       await db.close()
     }
@@ -225,6 +233,7 @@ describe('createTestDatabase', () => {
     const db = await createTestDatabase({ socket: true })
     try {
       expect(process.env.DATABASE_URL).toBe(db.url)
+      expect(warn).not.toHaveBeenCalled()
     } finally {
       await db.close()
     }
@@ -272,6 +281,17 @@ describe('createTestDatabase', () => {
     try {
       expect(db.env).toEqual({ DATABASE_URL: db.url })
       expect(process.env.DATABASE_URL).toBeUndefined()
+    } finally {
+      await db.close()
+    }
+  })
+
+  it('leaves a variable that is already set alone without a warning with exportEnv: false', async () => {
+    vi.stubEnv('DATABASE_URL', 'postgres://elsewhere/db')
+    const db = await createTestDatabase({ socket: true, exportEnv: false })
+    try {
+      expect(process.env.DATABASE_URL).toBe('postgres://elsewhere/db')
+      expect(warn).not.toHaveBeenCalled()
     } finally {
       await db.close()
     }

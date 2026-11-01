@@ -11,7 +11,6 @@ const visit = (id: number) => ({ id, createdAt: expect.any(String) })
 
 describe('/api/visits', () => {
   it('reaches the database of the run', () => {
-    // DX gap 1: an already-set `DATABASE_URL` silently wins over the setup's.
     // The routes run in this worker, which inherited the variables of the setup.
     expect(process.env.DATABASE_URL).toBe(inject('pglite').url)
   })

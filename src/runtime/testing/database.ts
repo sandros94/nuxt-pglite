@@ -59,7 +59,8 @@ export interface TestDatabaseOptions<E extends Extensions = {}> {
   /**
    * Sets the socket's variables on `process.env`, those still unset only, for
    * as long as the database is open: code reading `DATABASE_URL` (or the
-   * provider's variables) reaches it unchanged.
+   * provider's variables) reaches it unchanged. A variable that holds another
+   * value is left as is, with a warning.
    * @default true when `socket` is on
    */
   exportEnv?: boolean
@@ -246,16 +247,21 @@ function inheritSocket(socket: boolean | TestSocketOptions): boolean | TestSocke
 
 /**
  * Sets each variable that is still unset, as the development socket does, so
- * that a database configured in the environment wins; returns those it set,
- * with what each held before. An empty value counts as unset: a `.env` line
- * left blank.
+ * that a database configured in the environment wins, with a warning for each
+ * that holds another value; returns those it set, with what each held before.
+ * An empty value counts as unset: a `.env` line left blank.
  */
 function setUnsetVariables(variables: Record<string, string>): ExportedVariables {
   const exported: ExportedVariables = {}
   for (const [name, value] of Object.entries(variables)) {
-    if (!process.env[name]) {
-      exported[name] = { value, previous: process.env[name] }
+    const current = process.env[name]
+    if (!current) {
+      exported[name] = { value, previous: current }
       process.env[name] = value
+    } else if (current !== value) {
+      console.warn(
+        `[nuxt-pglite] \`${name}\` was already set. Unset it, or pass the test database's values on explicitly: \`db.env\` holds them (\`inject('pglite').env\` with \`definePGliteGlobalSetup\`).`,
+      )
     }
   }
   return exported
