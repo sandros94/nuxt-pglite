@@ -5,11 +5,13 @@ import type { PGlite } from '@electric-sql/pglite'
 import {
   COPY_FROM_STDIN_REJECTION,
   FrontendMessage,
-  buildCloseStatement,
+  buildErrorResponse,
   buildNotificationResponse,
   buildQuery,
+  buildReadyForQuery,
   buildSync,
   concatBytes,
+  deallocateByPrefix,
   hasErrorResponse,
   isCopyFromStdin,
   lastReadyForQueryStatus,
@@ -22,6 +24,21 @@ import {
   type ListenStatement,
   type TransactionStatus,
 } from './protocol'
+
+// What Postgres answers a cancelled query with.
+const QUERY_CANCELED = buildErrorResponse({
+  code: '57014',
+  message: 'canceling statement due to user request',
+  severity: 'ERROR',
+})
+
+// The frontend messages answered with ReadyForQuery: each ends a query, which
+// is what a cancel aborts.
+const QUERY_ENDS = new Set<number>([
+  FrontendMessage.Query,
+  FrontendMessage.Sync,
+  FrontendMessage.FunctionCall,
+])
 
 export interface BackendOptions {
   /**
@@ -70,11 +87,21 @@ export interface Session {
   send(messages: Uint8Array[]): void
 
   /**
-   * Ends the session: rolls back the transaction it left open and closes the
-   * given prepared statements. With `drain`, the messages queued before are
-   * still run first (a client's own Terminate); otherwise they are discarded.
+   * Ends the session: rolls back the transaction it left open and
+   * deallocates its prepared statements. With `drain`, the messages queued
+   * before are still run first (a client's own Terminate); otherwise they are
+   * discarded.
    */
-  release(statements: Iterable<string>, options?: { drain?: boolean }): void
+  release(options?: { drain?: boolean }): void
+
+  /**
+   * Cancels the client's next query while it waits for the backend: it is
+   * dropped and answered with SQLSTATE 57014 (`query_canceled`), as Postgres
+   * answers a cancelled one; the queries after it still run. A query in
+   * PGlite cannot be interrupted, so a cancel for the session owning the
+   * backend does nothing.
+   */
+  cancel(): void
 }
 
 // The backend session as the clients see it: it begins with the first client
@@ -102,6 +129,12 @@ interface SessionState {
   pendingListens: ListenStatement[]
   pipelineErrored: boolean
 
+  /**
+   * Cancelled before its pipeline's Sync arrived: what comes up to the Sync is
+   * discarded, as the backend does after an error.
+   */
+  skippingToSync?: boolean
+
   /** Released by the client's own Terminate: queued messages still run. */
   draining?: boolean
 
@@ -112,9 +145,13 @@ interface SessionState {
   status?: TransactionStatus
 
   /**
-   * Set once the client has gone away: the prepared statements to close.
+   * Prefix of the session's prepared statement names: the statements left
+   * with it are deallocated when the session is cleaned up.
    */
-  released?: string[]
+  statementPrefix: string
+
+  /** Set once the client has gone away. */
+  released?: boolean
 
   /**
    * Whether the session owned the backend when released, i.e. whether an open
@@ -174,9 +211,13 @@ export class Backend {
     this.#sessionSettings = sessionSettings
   }
 
-  openSession(handlers: SessionHandlers): Session {
+  openSession(
+    handlers: SessionHandlers,
+    { statementPrefix }: { statementPrefix: string },
+  ): Session {
     const state: SessionState = {
       handlers,
+      statementPrefix,
       shared: this.#shared,
       messages: [],
       channels: new Set(),
@@ -189,11 +230,28 @@ export class Backend {
 
     return {
       send: (messages) => {
-        if (this.#closed || state.released || messages.length === 0) {
+        if (this.#closed || state.released) {
           return
         }
 
-        state.messages.push(...messages)
+        let pending = messages
+        if (state.skippingToSync) {
+          const sync = messages.findIndex((message) => message[0] === FrontendMessage.Sync)
+          if (sync === -1) {
+            return
+          }
+
+          // Cancelled while waiting, so outside of a transaction.
+          state.skippingToSync = false
+          state.handlers.onResponse(buildReadyForQuery('I'))
+          pending = messages.slice(sync + 1)
+        }
+
+        if (pending.length === 0) {
+          return
+        }
+
+        state.messages.push(...pending)
 
         if (this.#owner === state) {
           this.#clearIdleTimer()
@@ -206,7 +264,7 @@ export class Backend {
 
       // Still honoured after `close`, so that the sessions torn down with the
       // server leave no transaction or prepared statement behind.
-      release: (statements, { drain = false } = {}) => {
+      release: ({ drain = false } = {}) => {
         if (state.released) {
           return
         }
@@ -215,7 +273,7 @@ export class Backend {
         if (!state.draining) {
           state.messages.length = 0
         }
-        state.released = [...statements]
+        state.released = true
         state.releasedAsOwner = this.#owner === state
 
         // Clients opened from now on join a new shared session. They queue
@@ -237,6 +295,34 @@ export class Backend {
         }
 
         this.#kick()
+      },
+
+      // A session not owning the backend gave it up idle, between two
+      // queries, so its queue starts with a query none of which is in PGlite.
+      // The owner's query is in PGlite, or the owner sits idle in a
+      // transaction, where Postgres ignores a cancel as well.
+      cancel: () => {
+        if (
+          this.#closed ||
+          state.released ||
+          this.#owner === state ||
+          state.messages.length === 0
+        ) {
+          return
+        }
+
+        const end = state.messages.findIndex((message) => QUERY_ENDS.has(message[0] ?? 0))
+        const synced = end !== -1
+
+        state.messages.splice(0, synced ? end + 1 : state.messages.length)
+        state.skippingToSync = !synced
+        if (state.messages.length === 0) {
+          this.#waiting.delete(state)
+        }
+
+        state.handlers.onResponse(
+          synced ? concatBytes(QUERY_CANCELED, buildReadyForQuery('I')) : QUERY_CANCELED,
+        )
       },
     }
   }
@@ -262,7 +348,12 @@ export class Backend {
   async close(): Promise<void> {
     this.#closed = true
     this.#clearIdleTimer()
-    this.#releaseLocks()
+
+    // A turn in progress ends the hold itself, after what it still runs under
+    // the locks (a cleanup's ROLLBACK); an idle owner's hold ends now.
+    if (!this.#running) {
+      this.#releaseLocks()
+    }
 
     for (const session of this.#waiting) {
       if (!session.released) {
@@ -285,7 +376,7 @@ export class Backend {
   async #pump(): Promise<void> {
     try {
       for (;;) {
-        const owner = this.#owner ?? this.#takeNextWaiting()
+        const owner = this.#owner ?? (await this.#takeNextWaiting())
 
         if (!owner) {
           return
@@ -293,9 +384,13 @@ export class Backend {
 
         this.#owner = owner
 
-        if (owner.released && !(owner.draining && owner.messages.length > 0)) {
+        // Once closed, what a leaving client queued no longer runs: it only
+        // gets its cleanup.
+        const draining = owner.draining && owner.messages.length > 0 && !this.#closed
+
+        if (owner.released && !draining) {
           await this.#holdLocks()
-          await this.#cleanUp(owner, owner.released)
+          await this.#cleanUp(owner)
           this.#owner = undefined
           this.#releaseLocks()
 
@@ -320,18 +415,40 @@ export class Backend {
         } catch (error) {
           owner.handlers.onError(error)
 
+          // Released by its handler: the cleanup turn comes next, as `#kick`
+          // does nothing while this turn runs.
+          if (Backend.#isReleased(owner)) {
+            continue
+          }
+
           return
         }
       }
     } finally {
       this.#running = false
+
+      // A closed backend serves no one: no hold on the locks outlasts the turn.
+      if (this.#closed) {
+        this.#releaseLocks()
+      }
     }
   }
 
-  #takeNextWaiting(): SessionState | undefined {
+  // A session owns the backend once PGlite's locks are held, i.e. once the
+  // app's own statements are done: until then it is waiting, and its query can
+  // still be cancelled.
+  async #takeNextWaiting(): Promise<SessionState | undefined> {
+    if (this.#waiting.size === 0) {
+      return undefined
+    }
+
+    await this.#holdLocks()
+
     const next = this.#waiting.values().next()
 
     if (next.done) {
+      this.#releaseLocks()
+
       return undefined
     }
 
@@ -438,12 +555,12 @@ export class Backend {
   // TypeScript would otherwise keep the loop condition's narrowing across the
   // `await`.
   static #isReleased(session: SessionState): boolean {
-    return session.released !== undefined
+    return session.released === true
   }
 
   // Released and not draining: nothing more of the client's is to be run.
   static #isDone(session: SessionState): boolean {
-    return session.released !== undefined && !session.draining
+    return session.released === true && !session.draining
   }
 
   // Like Postgres' `idle_in_transaction_session_timeout`, for an owner inside
@@ -510,7 +627,7 @@ export class Backend {
     }
   }
 
-  async #cleanUp(session: SessionState, statements: string[]): Promise<void> {
+  async #cleanUp(session: SessionState): Promise<void> {
     const ended = --session.shared.remaining === 0
     const channels = [...session.channels]
     for (const channel of channels) {
@@ -529,9 +646,9 @@ export class Backend {
         }
       }
 
-      if (statements.length > 0) {
-        await raw(concatBytes(...statements.map(buildCloseStatement), buildSync()))
-      }
+      // Found by prefix when the cleanup runs, whichever messages, run or
+      // drained, created them.
+      await raw(buildQuery(deallocateByPrefix(session.statementPrefix)))
 
       const reset = channels
         .filter((channel) => !this.#listeners.has(channel))

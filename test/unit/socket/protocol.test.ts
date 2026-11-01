@@ -2,12 +2,12 @@ import { describe, expect, it, test } from 'vitest'
 
 import {
   ProtocolError,
-  buildCloseStatement,
   buildNotificationResponse,
   buildQuery,
   buildReadyForQuery,
   buildSync,
   concatBytes,
+  deallocateByPrefix,
   lastReadyForQueryStatus,
   parseListenStatement,
   readQueryText,
@@ -68,9 +68,13 @@ describe('readStartupPacket', () => {
       length: 8,
     })
     expect(readStartupPacket(packet(80877102, int32(1), int32(2)))).toEqual({
-      packet: { kind: 'cancel-request' },
+      packet: { kind: 'cancel-request', processId: 1, secretKey: 2 },
       length: 16,
     })
+  })
+
+  test('rejects a cancel request that is not 16 bytes long', () => {
+    expect(() => readStartupPacket(packet(80877102, int32(1)))).toThrow(/cancel request/)
   })
 
   test('detects a startup message and its protocol version', () => {
@@ -134,19 +138,15 @@ describe('rewriteStatementName', () => {
   const prefix = '7_'
 
   test('prefixes the statement name of a Parse', () => {
-    const { message: rewritten, name } = rewriteStatementName(parse('stmt', 'SELECT $1'), {
-      prefix,
-    })
+    const rewritten = rewriteStatementName(parse('stmt', 'SELECT $1'), { prefix })
 
-    expect(name).toBe('7_stmt')
     expect(rewritten).toEqual(parse('7_stmt', 'SELECT $1'))
     expect(lengthOf(rewritten)).toBe(rewritten.length - 1)
   })
 
   test('prefixes the statement name of a Bind, not the portal name', () => {
-    const { message: rewritten, name } = rewriteStatementName(bind('portal', 'stmt'), { prefix })
+    const rewritten = rewriteStatementName(bind('portal', 'stmt'), { prefix })
 
-    expect(name).toBe('7_stmt')
     expect(rewritten).toEqual(bind('portal', '7_stmt'))
     expect(lengthOf(rewritten)).toBe(rewritten.length - 1)
   })
@@ -155,36 +155,34 @@ describe('rewriteStatementName', () => {
     const describeStatement = message('D', encoder.encode('S'), cString('stmt'))
     const closeStatement = message('C', encoder.encode('S'), cString('stmt'))
 
-    expect(rewriteStatementName(describeStatement, { prefix })).toEqual({
-      message: message('D', encoder.encode('S'), cString('7_stmt')),
-      name: '7_stmt',
-    })
-    expect(rewriteStatementName(closeStatement, { prefix })).toEqual({
-      message: buildCloseStatement('7_stmt'),
-      name: '7_stmt',
-    })
+    expect(rewriteStatementName(describeStatement, { prefix })).toEqual(
+      message('D', encoder.encode('S'), cString('7_stmt')),
+    )
+    expect(rewriteStatementName(closeStatement, { prefix })).toEqual(
+      message('C', encoder.encode('S'), cString('7_stmt')),
+    )
   })
 
   test('leaves Describe and Close of a portal untouched', () => {
     const describePortal = message('D', encoder.encode('P'), cString('portal'))
     const closePortal = message('C', encoder.encode('P'), cString('portal'))
 
-    expect(rewriteStatementName(describePortal, { prefix })).toEqual({ message: describePortal })
-    expect(rewriteStatementName(closePortal, { prefix })).toEqual({ message: closePortal })
+    expect(rewriteStatementName(describePortal, { prefix })).toBe(describePortal)
+    expect(rewriteStatementName(closePortal, { prefix })).toBe(closePortal)
   })
 
   test('leaves the unnamed statement untouched', () => {
     const unnamedParse = parse('', 'SELECT 1')
     const unnamedBind = bind('portal', '')
 
-    expect(rewriteStatementName(unnamedParse, { prefix }).message).toBe(unnamedParse)
-    expect(rewriteStatementName(unnamedBind, { prefix }).message).toBe(unnamedBind)
+    expect(rewriteStatementName(unnamedParse, { prefix })).toBe(unnamedParse)
+    expect(rewriteStatementName(unnamedBind, { prefix })).toBe(unnamedBind)
   })
 
   test('leaves other messages untouched', () => {
     const query = buildQuery('SELECT 1')
 
-    expect(rewriteStatementName(query, { prefix })).toEqual({ message: query })
+    expect(rewriteStatementName(query, { prefix })).toBe(query)
   })
 })
 
@@ -266,25 +264,23 @@ describe('readQueryText', () => {
 
 describe('rewriteSqlStatementName', () => {
   it('prefixes PREPARE, EXECUTE and DEALLOCATE names', () => {
-    expect(rewriteSqlStatementName('PREPARE Pick (int) AS SELECT $1', '3_')).toEqual({
-      sql: 'PREPARE "3_pick" (int) AS SELECT $1',
-      name: '3_pick',
-    })
-    expect(rewriteSqlStatementName('execute "Pick"(1)', '3_')).toEqual({
-      sql: 'execute "3_Pick"(1)',
-      name: '3_Pick',
-    })
-    expect(rewriteSqlStatementName('DEALLOCATE PREPARE pick', '3_')).toEqual({
-      sql: 'DEALLOCATE PREPARE "3_pick"',
-      name: '3_pick',
-    })
+    expect(rewriteSqlStatementName('PREPARE Pick (int) AS SELECT $1', '3_')).toBe(
+      'PREPARE "3_pick" (int) AS SELECT $1',
+    )
+    expect(rewriteSqlStatementName('execute "Pick"(1)', '3_')).toBe('execute "3_Pick"(1)')
+    expect(rewriteSqlStatementName('DEALLOCATE PREPARE pick', '3_')).toBe(
+      'DEALLOCATE PREPARE "3_pick"',
+    )
   })
 
-  it('flags DEALLOCATE ALL and leaves other statements alone', () => {
-    expect(rewriteSqlStatementName('DEALLOCATE ALL', '3_')).toEqual({
-      sql: 'DEALLOCATE ALL',
-      name: '*',
-    })
-    expect(rewriteSqlStatementName('SELECT 1', '3_')).toEqual({ sql: 'SELECT 1' })
+  it('limits DEALLOCATE ALL to the prefix, keeping what follows', () => {
+    expect(rewriteSqlStatementName('DEALLOCATE ALL', '3_')).toBe(deallocateByPrefix('3_'))
+    expect(rewriteSqlStatementName('deallocate prepare all; SELECT 1', '3_')).toBe(
+      `${deallocateByPrefix('3_')}; SELECT 1`,
+    )
+  })
+
+  it('leaves other statements alone', () => {
+    expect(rewriteSqlStatementName('SELECT 1', '3_')).toBe('SELECT 1')
   })
 })

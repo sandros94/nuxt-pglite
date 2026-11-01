@@ -163,7 +163,8 @@ export function createPGliteSocketServer(
     user = 'postgres',
   } = options
 
-  const connections = new Set<Connection>()
+  // By process id, which a CancelRequest names.
+  const connections = new Map<number, Connection>()
   let admitted = 0
   let nextProcessId = 1
 
@@ -245,12 +246,18 @@ export function createPGliteSocketServer(
       return { backend: target.backend, serverParameters: target.serverParameters }
     }
 
-    const connection = serveConnection(socket, { admit, onError, processId: nextProcessId++ })
+    const processId = nextProcessId++
+    const connection = serveConnection(socket, {
+      admit,
+      onError,
+      processId,
+      cancel: (canceled, secretKey) => connections.get(canceled)?.cancel(secretKey),
+    })
 
-    connections.add(connection)
+    connections.set(processId, connection)
 
     socket.once('close', () => {
-      connections.delete(connection)
+      connections.delete(processId)
 
       if (target) {
         target.connections.delete(connection)
@@ -340,7 +347,7 @@ export function createPGliteSocketServer(
 
     // Long-lived clients (pools, LISTEN) would otherwise keep the server
     // open; refused clients are not attached to an instance.
-    const socketsClosed = Array.from(connections, (connection) => connection.destroy())
+    const socketsClosed = Array.from(connections.values(), (connection) => connection.destroy())
 
     await Promise.all([serverClosed, detaching && detach(detaching), ...socketsClosed])
   }

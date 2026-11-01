@@ -6,6 +6,7 @@ export const FrontendMessage = {
   Bind: 0x42, // 'B'
   Close: 0x43, // 'C'
   Describe: 0x44, // 'D'
+  FunctionCall: 0x46, // 'F'
   Parse: 0x50, // 'P'
   Query: 0x51, // 'Q'
   Sync: 0x53, // 'S'
@@ -32,6 +33,10 @@ const CANCEL_REQUEST_CODE = 80877102
 // Postgres refuses startup packets longer than this (MAX_STARTUP_PACKET_LENGTH).
 const MAX_STARTUP_PACKET_LENGTH = 10000
 
+// `Int32(length) | Int32(code) | Int32(process id) | Int32(secret key)`: the
+// keys of protocol 3.0 are 4 bytes long.
+const CANCEL_REQUEST_LENGTH = 16
+
 // Kind byte of Describe and Close for a prepared statement, as opposed to a
 // portal ('P').
 const STATEMENT_KIND = 0x53 // 'S'
@@ -46,7 +51,7 @@ const TRANSACTION_STATUS: Record<number, TransactionStatus> = { 0x49: 'I', 0x54:
 export type StartupPacket =
   | { kind: 'ssl-request' }
   | { kind: 'gssenc-request' }
-  | { kind: 'cancel-request' }
+  | { kind: 'cancel-request'; processId: number; secretKey: number }
   | { kind: 'startup'; protocolVersion: number }
 
 // Bytes that cannot be framed as protocol messages. SQLSTATE 08P01
@@ -61,7 +66,6 @@ export class ProtocolError extends Error {
 }
 
 const textEncoder = new TextEncoder()
-const textDecoder = new TextDecoder()
 
 export function concatBytes(...parts: Uint8Array[]): Uint8Array {
   if (parts.length === 1 && parts[0]) {
@@ -145,7 +149,18 @@ export function readStartupPacket(
     case GSSENC_REQUEST_CODE:
       return { packet: { kind: 'gssenc-request' }, length }
     case CANCEL_REQUEST_CODE:
-      return { packet: { kind: 'cancel-request' }, length }
+      if (length !== CANCEL_REQUEST_LENGTH) {
+        throw new ProtocolError(`Invalid cancel request length ${String(length)}.`)
+      }
+
+      return {
+        packet: {
+          kind: 'cancel-request',
+          processId: readInt32(buffer, 8),
+          secretKey: readInt32(buffer, 12),
+        },
+        length,
+      }
     default:
       return { packet: { kind: 'startup', protocolVersion: code }, length }
   }
@@ -275,31 +290,35 @@ export function isCopyFromStdin(sql: string): boolean {
 export const COPY_FROM_STDIN_REJECTION =
   "DO $$ BEGIN RAISE EXCEPTION 'COPY FROM STDIN is not supported by PGlite' USING ERRCODE = '0A000'; END $$"
 
+// Deallocates the prepared statements whose name starts with `prefix`, as
+// found when it runs, whichever messages created them.
+export function deallocateByPrefix(prefix: string): string {
+  return `DO $$ DECLARE own text; BEGIN FOR own IN SELECT name FROM pg_prepared_statements WHERE starts_with(name, ${quoteLiteral(prefix)}) LOOP EXECUTE format('DEALLOCATE %I', own); END LOOP; END $$`
+}
+
 const SQL_STATEMENT_NAME =
   /^(\s*(?:PREPARE|EXECUTE|DEALLOCATE(?:\s+PREPARE)?)\s+)("(?:[^"]|"")+"|[\p{L}_][\p{L}\p{N}_$]*)/iu
 
 // `PREPARE` / `EXECUTE` / `DEALLOCATE` share the prepared-statement namespace
-// with the protocol-level ones, so their names get the same prefix. Returns
-// the prefixed name when one was rewritten, `'*'` for `DEALLOCATE ALL`.
-export function rewriteSqlStatementName(
-  sql: string,
-  prefix: string,
-): { sql: string; name?: string } {
+// with the protocol-level ones, so their names get the same prefix, and
+// `DEALLOCATE ALL` reaches only the statements with the prefix. The rest of
+// the SQL is kept.
+export function rewriteSqlStatementName(sql: string, prefix: string): string {
   const match = SQL_STATEMENT_NAME.exec(sql)
   if (!match) {
-    return { sql }
+    return sql
   }
 
   const [, head = '', identifier = ''] = match
+  const rest = sql.slice(match[0].length)
   if (/^DEALLOCATE/iu.test(head.trim()) && identifier.toLowerCase() === 'all') {
-    return { sql, name: '*' }
+    return `${deallocateByPrefix(prefix)}${rest}`
   }
 
   const quoted = identifier.startsWith('"')
   const bare = quoted ? identifier.slice(1, -1).replaceAll('""', '"') : identifier.toLowerCase()
-  const name = `${prefix}${bare}`
 
-  return { sql: `${head}${quoteIdentifier(name)}${sql.slice(match[0].length)}`, name }
+  return `${head}${quoteIdentifier(`${prefix}${bare}`)}${rest}`
 }
 
 export interface ListenStatement {
@@ -384,21 +403,21 @@ function digest(bytes: Uint8Array): string {
 
 // Prefixes the prepared-statement name in Parse, Bind, Describe ('S') and
 // Close ('S'). Other messages and the unnamed statement (empty name) pass
-// through. `name` is the rewritten name, set only when a rewrite happened.
+// through.
 export function rewriteStatementName(
   message: Uint8Array,
   { prefix }: { prefix: string },
-): { message: Uint8Array; name?: string } {
+): Uint8Array {
   const start = statementNameOffset(message)
 
   if (start === undefined) {
-    return { message }
+    return message
   }
 
   const end = message.indexOf(0, start)
 
   if (end === -1 || end === start) {
-    return { message }
+    return message
   }
 
   // Postgres keys statements on their first 63 bytes, so a long name is
@@ -410,14 +429,12 @@ export function rewriteStatementName(
       ? textEncoder.encode(digest(original))
       : original,
   )
-  const rewritten = buildMessage(
+  return buildMessage(
     readUint8(message, 0),
     message.subarray(5, start),
     name,
     message.subarray(end),
   )
-
-  return { message: rewritten, name: textDecoder.decode(name) }
 }
 
 export function buildAuthenticationOk(): Uint8Array {
@@ -479,10 +496,6 @@ export function buildNotificationResponse(
 
 export function buildQuery(sql: string): Uint8Array {
   return buildMessage(FrontendMessage.Query, cString(sql))
-}
-
-export function buildCloseStatement(name: string): Uint8Array {
-  return buildMessage(FrontendMessage.Close, new Uint8Array([STATEMENT_KIND]), cString(name))
 }
 
 export function buildSync(): Uint8Array {

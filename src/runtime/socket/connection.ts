@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto'
 import type { Socket } from 'node:net'
 
 import type { PGlite } from '@electric-sql/pglite'
@@ -13,7 +14,6 @@ import {
   buildParameterStatus,
   buildReadyForQuery,
   concatBytes,
-  quoteIdentifier,
   readQueryText,
   readStartupPacket,
   replaceQueryText,
@@ -100,6 +100,12 @@ export interface ConnectionOptions {
   onError: (error: unknown) => void
 
   /**
+   * Called when the client is a CancelRequest, with the process id and secret
+   * key it names: the connection they belong to is found by the caller.
+   */
+  cancel: (processId: number, secretKey: number) => void
+
+  /**
    * Called once, when the client's startup message arrives: what is served
    * then, rather than when the socket was accepted, decides the handshake.
    */
@@ -112,6 +118,13 @@ export interface Connection {
    * Resolves once the socket has closed.
    */
   destroy(): Promise<void>
+
+  /**
+   * Cancels the query the client is waiting on the backend for, when
+   * `secretKey` is the one it was given; otherwise does nothing, as Postgres
+   * does.
+   */
+  cancel(secretKey: number): void
 }
 
 // Emulates the startup handshake, then frames the client's messages and hands
@@ -121,9 +134,13 @@ export function serveConnection(socket: Socket, options: ConnectionOptions): Con
 
   // Prepared statements live in the single backend session, so two clients
   // preparing the same name would collide. The prefix is short because
-  // Postgres keys statements on the first 63 bytes of the name.
+  // Postgres keys statements on the first 63 bytes of the name. The
+  // statements left with the prefix are deallocated when the client leaves.
   const statementPrefix = `${String(processId)}_`
-  const statements = new Set<string>()
+
+  // Proves a CancelRequest comes from the client, which got it through
+  // BackendKeyData.
+  const secretKey = randomInt(-(2 ** 31), 2 ** 31)
 
   let phase: 'startup' | 'ready' | 'closed' = 'startup'
   let buffer: Uint8Array = new Uint8Array(0)
@@ -148,7 +165,7 @@ export function serveConnection(socket: Socket, options: ConnectionOptions): Con
   // still run, then the session is cleaned up.
   const close = () => {
     phase = 'closed'
-    session?.release(statements, { drain: true })
+    session?.release({ drain: true })
     socket.end()
   }
 
@@ -156,7 +173,7 @@ export function serveConnection(socket: Socket, options: ConnectionOptions): Con
   // the other clients even if the client never reads the error.
   const release = () => {
     phase = 'closed'
-    session?.release(statements)
+    session?.release()
   }
 
   // Ends the connection at the server's initiative, the way Postgres does:
@@ -174,25 +191,28 @@ export function serveConnection(socket: Socket, options: ConnectionOptions): Con
   }
 
   const openSession = (backend: Backend): Session =>
-    backend.openSession({
-      onResponse: write,
-      onError(error) {
-        onError(error)
-        // What Postgres reports when the backend dies under a client.
-        terminate({ code: '57P01', message: 'terminating connection because of a backend error' })
+    backend.openSession(
+      {
+        onResponse: write,
+        onError(error) {
+          onError(error)
+          // What Postgres reports when the backend dies under a client.
+          terminate({ code: '57P01', message: 'terminating connection because of a backend error' })
+        },
+        onIdleInTransactionTimeout() {
+          terminate({
+            code: '25P03',
+            message: 'terminating connection due to idle-in-transaction timeout',
+          })
+        },
+        onNotification(message) {
+          if (phase === 'ready') {
+            write(message)
+          }
+        },
       },
-      onIdleInTransactionTimeout() {
-        terminate({
-          code: '25P03',
-          message: 'terminating connection due to idle-in-transaction timeout',
-        })
-      },
-      onNotification(message) {
-        if (phase === 'ready') {
-          write(message)
-        }
-      },
-    })
+      { statementPrefix },
+    )
 
   const readStartup = () => {
     while (phase === 'startup') {
@@ -214,8 +234,10 @@ export function serveConnection(socket: Socket, options: ConnectionOptions): Con
 
           break
 
-        // Queries cannot be cancelled on the single backend.
+        // A connection of its own, closed without a response, as Postgres
+        // does.
         case 'cancel-request':
+          options.cancel(packet.processId, packet.secretKey)
           close()
 
           break
@@ -244,7 +266,7 @@ export function serveConnection(socket: Socket, options: ConnectionOptions): Con
               ...Array.from(admission.serverParameters, ([name, value]) =>
                 buildParameterStatus(name, value),
               ),
-              buildBackendKeyData(processId, 0),
+              buildBackendKeyData(processId, secretKey),
               buildReadyForQuery('I'),
             ),
           )
@@ -265,23 +287,9 @@ export function serveConnection(socket: Socket, options: ConnectionOptions): Con
       return message
     }
 
-    const { sql, name } = rewriteSqlStatementName(text, statementPrefix)
-    if (name === undefined) {
-      return message
-    }
-    if (name === '*') {
-      const own = [...statements].map((statement) => `DEALLOCATE ${quoteIdentifier(statement)}`)
-      statements.clear()
+    const sql = rewriteSqlStatementName(text, statementPrefix)
 
-      return replaceQueryText(message, own.length > 0 ? own.join('; ') : 'DEALLOCATE ALL')
-    }
-    if (/^\s*PREPARE/iu.test(text)) {
-      statements.add(name)
-    } else if (/^\s*DEALLOCATE/iu.test(text)) {
-      statements.delete(name)
-    }
-
-    return replaceQueryText(message, sql)
+    return sql === text ? message : replaceQueryText(message, sql)
   }
 
   const readMessages = (active: Session) => {
@@ -301,17 +309,9 @@ export function serveConnection(socket: Socket, options: ConnectionOptions): Con
         break
       }
 
-      const rewritten = rewriteStatementName(message, { prefix: statementPrefix })
-
-      if (rewritten.name !== undefined) {
-        if (message[0] === FrontendMessage.Parse) {
-          statements.add(rewritten.name)
-        } else if (message[0] === FrontendMessage.Close) {
-          statements.delete(rewritten.name)
-        }
-      }
-
-      forwarded.push(rewriteSqlStatements(rewritten.message))
+      forwarded.push(
+        rewriteSqlStatements(rewriteStatementName(message, { prefix: statementPrefix })),
+      )
     }
 
     active.send(forwarded)
@@ -350,6 +350,12 @@ export function serveConnection(socket: Socket, options: ConnectionOptions): Con
       socket.destroy()
 
       return closed
+    },
+
+    cancel(key) {
+      if (phase === 'ready' && key === secretKey) {
+        session?.cancel()
+      }
     },
   }
 }
