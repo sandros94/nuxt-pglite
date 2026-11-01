@@ -77,8 +77,19 @@ export interface Session {
   release(statements: Iterable<string>, options?: { drain?: boolean }): void
 }
 
+// The backend session as the clients see it: it begins with the first client
+// and ends with the last one.
+interface SharedSession {
+  /** Clients on it not yet released. */
+  open: number
+
+  /** Clients on it not yet cleaned up after. */
+  remaining: number
+}
+
 interface SessionState {
   handlers: SessionHandlers
+  shared: SharedSession
   messages: Uint8Array[]
 
   /** Channels the client has LISTENed to. */
@@ -122,6 +133,10 @@ interface SessionState {
  * idle (`'I'`), so a pipeline (`Parse … Sync`) and a transaction block (`BEGIN …
  * COMMIT`) run without interference while the other clients queue in arrival
  * order.
+ *
+ * Session state (settings, temp tables, advisory locks) is shared by every
+ * client as well. Like a real session's, it is dropped when the session ends:
+ * here once its last client has disconnected and been cleaned up after.
  */
 export class Backend {
   #db: PGlite
@@ -131,6 +146,8 @@ export class Backend {
   // Sessions waiting for ownership, in arrival order. `Set` makes re-queueing
   // an already waiting session a no-op.
   #waiting = new Set<SessionState>()
+
+  #shared: SharedSession = { open: 0, remaining: 0 }
 
   #closed = false
   #pumping?: Promise<void>
@@ -160,11 +177,15 @@ export class Backend {
   openSession(handlers: SessionHandlers): Session {
     const state: SessionState = {
       handlers,
+      shared: this.#shared,
       messages: [],
       channels: new Set(),
       pendingListens: [],
       pipelineErrored: false,
     }
+
+    state.shared.open++
+    state.shared.remaining++
 
     return {
       send: (messages) => {
@@ -197,12 +218,20 @@ export class Backend {
         state.released = [...statements]
         state.releasedAsOwner = this.#owner === state
 
+        // Clients opened from now on join a new shared session. They queue
+        // behind the turns of this one's clients, so its state is dropped
+        // before they run anything.
+        if (--state.shared.open === 0) {
+          this.#shared = { open: 0, remaining: 0 }
+        }
+
         if (state.releasedAsOwner) {
           this.#clearIdleTimer()
         }
 
-        // Every session gets a cleanup turn: its session state (settings,
-        // temp tables, locks, LISTENs) lives in the shared backend.
+        // Every session gets a cleanup turn: its prepared statements and
+        // LISTENs live in the shared backend, and the last one's turn ends the
+        // shared session.
         if (!state.releasedAsOwner) {
           this.#waiting.add(state)
         }
@@ -482,6 +511,7 @@ export class Backend {
   }
 
   async #cleanUp(session: SessionState, statements: string[]): Promise<void> {
+    const ended = --session.shared.remaining === 0
     const channels = [...session.channels]
     for (const channel of channels) {
       this.#unsubscribe(session, channel)
@@ -503,22 +533,29 @@ export class Backend {
         await raw(concatBytes(...statements.map(buildCloseStatement), buildSync()))
       }
 
-      // Session state a real server would drop with the connection. Not
-      // DISCARD ALL: that would also deallocate the other clients' statements.
-      // The settings the in-process code had set are put back afterwards.
-      const reset = [
-        ...channels
-          .filter((channel) => !this.#listeners.has(channel))
-          .map((channel) => `UNLISTEN ${quoteIdentifier(channel)}`),
-        'RESET ALL',
-        ...this.#sessionSettings.map(
-          ({ name, setting }) =>
-            `SELECT set_config(${quoteLiteral(name)}, ${quoteLiteral(setting)}, false)`,
-        ),
-        'SELECT pg_advisory_unlock_all()',
-        'DISCARD TEMP',
-      ]
-      await raw(buildQuery(reset.join('; ')))
+      const reset = channels
+        .filter((channel) => !this.#listeners.has(channel))
+        .map((channel) => `UNLISTEN ${quoteIdentifier(channel)}`)
+
+      // The shared session ended: its state goes, as a real server's would
+      // with the connection. Not DISCARD ALL: the in-process code shares the
+      // session, and would lose its prepared statements and LISTENs. The
+      // settings it had set are put back afterwards.
+      if (ended) {
+        reset.push(
+          'RESET ALL',
+          ...this.#sessionSettings.map(
+            ({ name, setting }) =>
+              `SELECT set_config(${quoteLiteral(name)}, ${quoteLiteral(setting)}, false)`,
+          ),
+          'SELECT pg_advisory_unlock_all()',
+          'DISCARD TEMP',
+        )
+      }
+
+      if (reset.length > 0) {
+        await raw(buildQuery(reset.join('; ')))
+      }
       await this.#db.syncToFs()
     } catch (error) {
       session.handlers.onError(error)

@@ -33,6 +33,14 @@ const connectClient = async (server: PGliteSocketServer) => {
   return client
 }
 
+// A client that comes, runs a query and leaves while others stay connected.
+const visitAndLeave = async (server: PGliteSocketServer) => {
+  const visitor = await connectClient(server)
+
+  await visitor.query('SELECT 1')
+  await visitor.end()
+}
+
 // Resolves with the first error a client receives outside of a query, e.g.
 // when the server terminates its connection. The listener stays, as `pg`
 // reports the closed connection as another error.
@@ -408,6 +416,74 @@ describe('createPGliteSocketServer', () => {
       )
       expect((await second.query("SELECT to_regclass('scratch') AS t")).rows[0]?.t).toBeNull()
       expect((await second.query('SELECT pg_try_advisory_lock(42) AS ok')).rows[0]?.ok).toBe(true)
+    })
+
+    it("keeps a client's advisory locks while another client disconnects", async () => {
+      const holder = await connectClient(server)
+      expect((await holder.query('SELECT pg_try_advisory_lock(7) AS ok')).rows[0]?.ok).toBe(true)
+
+      await visitAndLeave(server)
+
+      expect((await holder.query('SELECT pg_advisory_unlock(7) AS ok')).rows[0]?.ok).toBe(true)
+    })
+
+    it("keeps a client's temp tables while another client disconnects", async () => {
+      const holder = await connectClient(server)
+      await holder.query('CREATE TEMP TABLE kept (id int)')
+      await holder.query('INSERT INTO kept VALUES (1)')
+
+      await visitAndLeave(server)
+
+      expect((await holder.query('SELECT id FROM kept')).rows).toEqual([{ id: 1 }])
+    })
+
+    it("keeps a client's settings while another client disconnects", async () => {
+      const holder = await connectClient(server)
+      await holder.query("SET application_name = 'holder'")
+
+      await visitAndLeave(server)
+
+      expect((await holder.query('SHOW application_name')).rows[0]?.application_name).toBe('holder')
+    })
+
+    it('resets the session state once the last client disconnects', async () => {
+      const holder = await connectClient(server)
+      const { application_name: initial } = (await holder.query('SHOW application_name')).rows[0]
+      await holder.query("SET application_name = 'holder'")
+      await holder.query('CREATE TEMP TABLE scratch_last (id int)')
+      expect((await holder.query('SELECT pg_try_advisory_lock(7) AS ok')).rows[0]?.ok).toBe(true)
+
+      await visitAndLeave(server)
+      await holder.end()
+
+      const next = await connectClient(server)
+      expect((await next.query('SHOW application_name')).rows[0]?.application_name).toBe(initial)
+      expect((await next.query("SELECT to_regclass('scratch_last') AS t")).rows[0]?.t).toBeNull()
+      expect((await next.query('SELECT pg_try_advisory_lock(7) AS ok')).rows[0]?.ok).toBe(true)
+      expect((await next.query('SELECT pg_advisory_unlock(7) AS ok')).rows[0]?.ok).toBe(true)
+    })
+
+    it('resets the session state after what the clients queued before leaving', async () => {
+      const owner = await connectClient(server)
+      await owner.query('BEGIN')
+
+      // Queued behind the owner's transaction, still run after its Terminate.
+      const leaver = await connectRaw(server)
+      leaver.socket.end(
+        Buffer.concat([
+          frontendMessage('Q', text('CREATE TEMP TABLE queued_last (id int)')),
+          frontendMessage('X'),
+        ]),
+      )
+      await once(leaver.socket, 'close')
+
+      // The last client to leave, while the queued table is still to come.
+      owner.on('error', () => {})
+      owner.connection.stream.destroy()
+      await vi.waitFor(() => expect(server.connections).toBe(0))
+
+      const next = await connectClient(server)
+      expect((await next.query("SELECT to_regclass('queued_last') AS t")).rows[0]?.t).toBeNull()
     })
   })
 
