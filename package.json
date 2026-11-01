@@ -87,7 +87,7 @@
     "automd": "^0.4.3",
     "drizzle-kit": "catalog:",
     "drizzle-orm": "catalog:",
-    "happy-dom": "npm:happy-dom@^20.14.5",
+    "happy-dom": "npm:happy-dom@^21.0.0",
     "nitro": "catalog:",
     "nitropack": "npm:nitropack@^2.13.4",
     "nuxt": "catalog:",
