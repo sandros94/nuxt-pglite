@@ -26,6 +26,8 @@
     "**/drizzle/**",
     "**/database/migrations/**",
     // MDC syntax (components, slots, props blocks) is not Markdown the formatter knows.
-    "docs/content/**"
+    "docs/content/**",
+    // Nitro v3 parser errors on wrangler's commas
+    "**/wrangler.jsonc"
   ]
 }

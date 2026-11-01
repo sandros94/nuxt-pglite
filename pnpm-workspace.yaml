@@ -9,6 +9,7 @@ catalog:
   "@types/pg": npm:@types/pg@^8.23.1
   drizzle-kit: npm:drizzle-kit@1.0.0-rc.5
   drizzle-orm: npm:drizzle-orm@1.0.0-rc.5
+  nitro: npm:nitro@^3.0.261029-rc
   nuxt: npm:nuxt@^4.6.0
   pg: npm:pg@^8.23.1
   vue: npm:vue@^3.5.43
@@ -23,6 +24,7 @@ minimumReleaseAgeStrict: true
 minimumReleaseAgeExclude:
   - 'nitro'
   - 'nuxt'
+  - 'nuxt-nightly'
   - '@nuxt/*'
 
 allowBuilds:
@@ -35,3 +37,4 @@ allowBuilds:
   simple-git-hooks: true
   ssh2: false
   vue-demi: false
+  workerd: false

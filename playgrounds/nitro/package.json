@@ -1,0 +1,24 @@
+{
+  "name": "nuxt-pglite-playground-nitro",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nitro dev",
+    "build": "nitro build",
+    "preview": "node .output/server/index.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "catalog:",
+    "drizzle-orm": "catalog:",
+    "h3": "npm:h3@^2.0.8",
+    "nitro": "catalog:",
+    "nuxt-pglite": "workspace:*",
+    "pg": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "npm:@types/node@^24.19.1",
+    "@types/pg": "catalog:",
+    "typescript": "npm:typescript@^6.0.3"
+  }
+}

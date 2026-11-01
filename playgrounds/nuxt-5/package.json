@@ -1,0 +1,31 @@
+{
+  "name": "nuxt-pglite-playground-nuxt-5",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "dev:prepare": "nuxt prepare",
+    "build": "nuxt build",
+    "preview": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "nuxt typecheck --checker=golar"
+  },
+  "dependencies": {
+    "drizzle-orm": "catalog:",
+    "h3": "npm:h3@^2.0.8",
+    "nitro": "catalog:",
+    "nuxt": "npm:nuxt-nightly@5.0.0-2611010234-c709ec8",
+    "nuxt-pglite": "workspace:*",
+    "pg": "catalog:",
+    "vue": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "npm:@cloudflare/workers-types@^5.20261031.1",
+    "@electric-sql/pglite": "catalog:",
+    "@golar/vue": "npm:@golar/vue@^0.1.10",
+    "@types/node": "npm:@types/node@^24.19.1",
+    "@types/pg": "catalog:",
+    "golar": "npm:golar@^0.1.10",
+    "wrangler": "npm:wrangler@^4.156.0"
+  }
+}
