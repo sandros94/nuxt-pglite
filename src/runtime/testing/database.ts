@@ -219,25 +219,33 @@ function inheritSocket(socket: boolean | TestSocketOptions): boolean | TestSocke
 
 /**
  * Sets each variable that is still unset, as the development socket does, so
- * that a database configured in the environment wins; returns those it set.
- * An empty value counts as set: it was set on purpose.
+ * that a database configured in the environment wins; returns those it set,
+ * with what each held before. An empty value counts as unset: a `.env` line
+ * left blank.
  */
-function setUnsetVariables(variables: Record<string, string>): Record<string, string> {
-  const exported: Record<string, string> = {}
+function setUnsetVariables(variables: Record<string, string>): ExportedVariables {
+  const exported: ExportedVariables = {}
   for (const [name, value] of Object.entries(variables)) {
-    if (process.env[name] === undefined) {
+    if (!process.env[name]) {
+      exported[name] = { value, previous: process.env[name] }
       process.env[name] = value
-      exported[name] = value
     }
   }
   return exported
 }
 
-/** Unsets the variables that still hold the values it set. */
-function unsetVariables(exported: Record<string, string>): void {
-  for (const [name, value] of Object.entries(exported)) {
-    if (process.env[name] === value) {
+/** Puts back the variables that still hold the values it set. */
+function unsetVariables(exported: ExportedVariables): void {
+  for (const [name, { value, previous }] of Object.entries(exported)) {
+    if (process.env[name] !== value) {
+      continue
+    }
+    if (previous === undefined) {
       delete process.env[name]
+    } else {
+      process.env[name] = previous
     }
   }
 }
+
+type ExportedVariables = Record<string, { value: string; previous: string | undefined }>

@@ -351,13 +351,13 @@ async function startSocket(
 }
 
 /**
- * Sets each variable that is still unset (an empty value counts as set), and
- * returns those it set. Another module may set the same ones afterwards, e.g.
+ * Sets each variable that is still unset (an empty value counts as unset: a
+ * `.env` line left blank), and returns those it set. Another module may set the same ones afterwards, e.g.
  * a database emulation in `nitro:init`: they are checked once Nitro is set up
  * and again once the dev server listens, with a warning for each that no
  * longer reaches the socket.
- * Those still holding the socket's values are unset on close, so that a
- * restart exports its own.
+ * Those still holding the socket's values go back to what they held on
+ * close, so that a restart exports its own.
  */
 function exportEnv(
   variables: Record<string, string>,
@@ -365,8 +365,10 @@ function exportEnv(
   logger: ReturnType<typeof useLogger>,
 ): Record<string, string> {
   const exported: Record<string, string> = {}
+  const previous: Record<string, string | undefined> = {}
   for (const [name, value] of Object.entries(variables)) {
-    if (process.env[name] === undefined) {
+    if (!process.env[name]) {
+      previous[name] = process.env[name]
       process.env[name] = value
       exported[name] = value
     }
@@ -392,12 +394,21 @@ function exportEnv(
   nuxt.hook('close', () => {
     for (const [name, value] of Object.entries(exported)) {
       if (process.env[name] === value) {
-        delete process.env[name]
+        restore(name, previous[name])
       }
     }
   })
 
   return exported
+}
+
+/** Puts a variable back to what it held before the socket set it. */
+function restore(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name]
+  } else {
+    process.env[name] = value
+  }
 }
 
 function asError(error: unknown): Error {

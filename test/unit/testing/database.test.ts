@@ -191,11 +191,11 @@ describe('createTestDatabase', () => {
     expect(process.env.NETLIFY_DB_DRIVER).toBeUndefined()
   })
 
-  it('leaves a variable set to an empty value alone', async () => {
+  it('treats a variable set to an empty value as unset, and puts it back', async () => {
     vi.stubEnv('DATABASE_URL', '')
     const db = await createTestDatabase({ socket: true })
     try {
-      expect(process.env.DATABASE_URL).toBe('')
+      expect(process.env.DATABASE_URL).toBe(db.url)
     } finally {
       await db.close()
     }

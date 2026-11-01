@@ -40,7 +40,7 @@ export interface SocketOptions {
   /**
    * Environment variables exported for the socket, `DATABASE_URL` by default:
    * a name receives the connection URL; a map gives each name a function of
-   * the URL or a string exported as is. Each is set only while still unset,
+   * the URL or a string exported as is. Each is set only while still unset (an empty value counts as unset),
    * so a real database configured in the environment wins, and a warning
    * names any that hold something else once the dev server is up (set
    * before, or overwritten by another module). `false` exports nothing.
