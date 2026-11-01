@@ -36,15 +36,17 @@ export interface TestDatabaseOptions<E extends Extensions = {}> {
   alias?: Record<string, string>
 
   /**
-   * The directory a relative `config` path resolves from: the app's root, as
-   * `nuxt.options.rootDir` holds it; see `loadPGliteConfig`.
+   * The directory a relative `config` path and a relative `dataDir` on disk
+   * resolve from: the app's root, as `nuxt.options.rootDir` holds it; see
+   * `loadPGliteConfig`.
    * @default process.cwd()
    */
   rootDir?: string
 
   /**
    * Overrides `config.dataDir`: in memory by default, so that a suite never
-   * touches the app's data.
+   * touches the app's data. A path on disk is resolved against `rootDir`, as
+   * the module resolves one, and its missing parents are created.
    * @default 'memory://'
    */
   dataDir?: string
@@ -100,8 +102,8 @@ export function createTestDatabase<E extends Extensions = {}>(
 // `E` only types the instance handed out; the implementation works on the
 // config as PGlite and the socket see it.
 export async function createTestDatabase(options: TestDatabaseOptions = {}): Promise<TestDatabase> {
-  const { alias, rootDir, config: input = {}, dataDir = 'memory://', socket = false } = options
-  const { exportEnv = Boolean(socket) } = options
+  const { alias, config: input = {}, dataDir = 'memory://', socket = false } = options
+  const { rootDir = process.cwd(), exportEnv = Boolean(socket) } = options
 
   const [{ PGlite }, loaded] = await Promise.all([
     // Deferred, like the provider's: `@electric-sql/pglite` is an optional peer.
@@ -113,8 +115,7 @@ export async function createTestDatabase(options: TestDatabaseOptions = {}): Pro
   // A custom `fs` holds the app's own data directory and takes the place of
   // `dataDir`: the test database would write to the app's data.
   const { fs: _fs, ...rest } = loaded
-  const config: PGliteConfig = { ...rest, dataDir }
-  await createDataDirParents(dataDir)
+  const config: PGliteConfig = { ...rest, dataDir: await prepareDataDir(dataDir, rootDir) }
   const pg = await createInstance(PGlite, config)
 
   return openDatabase(PGlite, config, pg, { socket, exportEnv, dispose: true })
@@ -124,16 +125,20 @@ export async function createTestDatabase(options: TestDatabaseOptions = {}): Pro
 const NOT_ON_DISK = /^(?:memory|idb|opfs-ahp|memfs2opfs):\/\//
 
 /**
- * Creates the missing parents of a `dataDir` on disk, read as PGlite reads it
- * (as `hostDataDir` in `src/utils/data-dir.ts` does): PGlite creates the
- * directory itself, but not its parents.
+ * The `dataDir` PGlite opens. One on disk, read as PGlite reads it (as
+ * `hostDataDir` in `src/utils/data-dir.ts` does), is resolved against
+ * `rootDir` as the module resolves one, and its missing parents are created:
+ * PGlite creates the directory itself, but not its parents. Any other is
+ * returned as given.
  */
-async function createDataDirParents(dataDir: string): Promise<void> {
+async function prepareDataDir(dataDir: string, rootDir: string): Promise<string> {
   const path = dataDir.startsWith('file://') ? dataDir.slice('file://'.length) : dataDir
-  if (path && !NOT_ON_DISK.test(path)) {
-    // Resolved as PGlite resolves it, from the working directory.
-    await mkdir(dirname(resolve(path)), { recursive: true })
+  if (!path || NOT_ON_DISK.test(path)) {
+    return dataDir
   }
+  const resolved = resolve(rootDir, path)
+  await mkdir(dirname(resolved), { recursive: true })
+  return resolved
 }
 
 interface OpenOptions {

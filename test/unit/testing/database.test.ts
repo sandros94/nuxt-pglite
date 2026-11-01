@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -98,6 +98,22 @@ describe('createTestDatabase', () => {
       } finally {
         await db.close()
       }
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('resolves a relative `dataDir` against `rootDir`, its parents created', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'nuxt-pglite-testing-'))
+    try {
+      const db = await createTestDatabase({ config, rootDir: directory, dataDir: 'a/b/pglite' })
+      try {
+        await db.pg.query("INSERT INTO items VALUES ('under rootDir')")
+        expect(db.pg.dataDir).toBe(join(directory, 'a', 'b', 'pglite'))
+      } finally {
+        await db.close()
+      }
+      expect((await stat(join(directory, 'a', 'b', 'pglite'))).isDirectory()).toBe(true)
     } finally {
       await rm(directory, { recursive: true, force: true })
     }
