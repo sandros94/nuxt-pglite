@@ -17,6 +17,7 @@
     "@iconify-json/simple-icons": "npm:@iconify-json/simple-icons@^1.2.98",
     "@iconify-json/vscode-icons": "npm:@iconify-json/vscode-icons@^1.2.84",
     "@neondatabase/serverless": "npm:@neondatabase/serverless@^1.2.0",
+    "@netlify/database": "^2.0.1",
     "@nuxt/content": "npm:@nuxt/content@^3.16.1",
     "@nuxt/image": "npm:@nuxt/image@^2.1.0",
     "@nuxt/ui": "npm:@nuxt/ui@^4.11.3",

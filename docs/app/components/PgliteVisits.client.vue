@@ -1,16 +1,35 @@
 <script setup lang="ts">
-const data = shallowRef<VisitsResponse>()
+import { FetchError } from 'ofetch'
+
+type State =
+  | { status: 'ok'; visits: VisitsResponse }
+  | { status: 'unconfigured' | 'error'; title: string; message: string }
+
+const state = shallowRef<State>()
 const loading = ref(false)
 
 async function request(method: 'GET' | 'POST') {
   loading.value = true
   try {
-    data.value = await $fetch<VisitsResponse>('/api/visits', { method })
-  } catch (cause) {
-    data.value = { status: 'error', message: errorMessage(cause) }
+    state.value = { status: 'ok', visits: await $fetch<VisitsResponse>('/api/visits', { method }) }
+  } catch (error) {
+    state.value = failure(error)
   } finally {
     loading.value = false
   }
+}
+
+/** The `503` the route answers without a database is a warning; any other failure is an error. */
+function failure(error: unknown): State {
+  if (error instanceof FetchError && error.data) {
+    const data = error.data as { statusMessage?: string; message?: string; data?: DatabaseError }
+    return {
+      status: data.data?.reason === 'unconfigured' ? 'unconfigured' : 'error',
+      title: data.statusMessage ?? 'The request failed',
+      message: data.message ?? errorMessage(error),
+    }
+  }
+  return { status: 'error', title: 'The request failed', message: errorMessage(error) }
 }
 
 function formatDate(iso: string) {
@@ -43,7 +62,7 @@ onMounted(() => request('GET'))
             icon="i-lucide-plus"
             size="sm"
             :loading="loading"
-            :disabled="data?.status !== 'ok'"
+            :disabled="state?.status !== 'ok'"
             data-testid="visit-add"
             @click="request('POST')"
           />
@@ -51,34 +70,25 @@ onMounted(() => request('GET'))
       </div>
     </template>
 
-    <USkeleton v-if="!data" class="h-24 w-full" />
+    <USkeleton v-if="!state" class="h-24 w-full" />
 
     <UAlert
-      v-else-if="data.status === 'unconfigured'"
-      color="warning"
+      v-else-if="state.status !== 'ok'"
+      :color="state.status === 'unconfigured' ? 'warning' : 'error'"
       variant="subtle"
-      icon="i-lucide-database-zap"
-      title="No NETLIFY_DB_URL"
-      :description="data.message"
-      data-testid="server-demo-unconfigured"
-    />
-
-    <UAlert
-      v-else-if="data.status === 'error'"
-      color="error"
-      variant="subtle"
-      icon="i-lucide-circle-x"
-      title="The database answered with an error"
-      :description="data.message"
+      :icon="state.status === 'unconfigured' ? 'i-lucide-database-zap' : 'i-lucide-circle-x'"
+      :title="state.title"
+      :description="state.message"
+      :data-testid="`server-demo-${state.status}`"
     />
 
     <div v-else data-testid="server-demo-ok">
       <p class="text-sm">
-        <span class="font-semibold text-highlighted">{{ data.total }}</span>
+        <span class="font-semibold text-highlighted">{{ state.visits.total }}</span>
         visit(s) recorded. Latest:
       </p>
       <ul class="mt-2 space-y-1 font-mono text-xs text-muted">
-        <li v-for="visit in data.latest" :key="visit.id">
+        <li v-for="visit in state.visits.latest" :key="visit.id">
           #{{ visit.id }} · {{ formatDate(visit.createdAt) }}
         </li>
       </ul>
