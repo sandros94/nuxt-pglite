@@ -18,9 +18,9 @@
     "pg": "catalog:"
   },
   "devDependencies": {
-    "@types/node": "npm:@types/node@^24.19.1",
+    "@types/node": "npm:@types/node@24.19.1",
     "@types/pg": "catalog:",
-    "typescript": "npm:typescript@^6.0.3",
+    "typescript": "npm:typescript@6.0.3",
     "vitest": "npm:vitest@^5.0.3"
   }
 }

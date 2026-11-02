@@ -231,16 +231,16 @@ importers:
         specifier: npm:@nuxt/test-utils@4.3.3
         version: 4.3.3(@nuxt/schema@4.6.0)(@oxc-project/types@0.156.0)(@playwright/test@1.63.0)(@vue/test-utils@2.5.1(@vue/compiler-dom@3.5.44)(@vue/server-renderer@3.5.44)(vue@3.5.44(typescript@6.0.3)))(confbox@0.3.1)(dotenv@17.4.2)(esbuild@0.28.2)(giget@3.3.1)(h3@1.15.11)(happy-dom@20.14.5)(jiti@2.7.0)(mlly@1.8.2)(nuxt@4.6.0(a69d62c2dedb5ffa456f4245ed9553e9))(oxc-parser@0.151.0)(playwright-core@1.63.0)(rolldown@1.2.16)(rollup@4.64.0)(vite@8.3.5)(vitest@5.0.3(@types/node@24.19.1)(happy-dom@20.14.5)(vite@8.3.5))(vue@3.5.44(typescript@6.0.3))
       '@playwright/test':
-        specifier: npm:@playwright/test@^1.63.0
+        specifier: npm:@playwright/test@1.63.0
         version: 1.63.0
       '@types/pg':
         specifier: 'catalog:'
         version: 8.23.1
       '@vue/test-utils':
-        specifier: npm:@vue/test-utils@^2.5.1
+        specifier: npm:@vue/test-utils@2.5.1
         version: 2.5.1(@vue/compiler-dom@3.5.44)(@vue/server-renderer@3.5.44)(vue@3.5.44(typescript@6.0.3))
       automd:
-        specifier: ^0.4.3
+        specifier: 0.4.3
         version: 0.4.3(magicast@0.5.5)
       drizzle-kit:
         specifier: 'catalog:'
@@ -255,34 +255,34 @@ importers:
         specifier: 'catalog:'
         version: 3.0.261029-rc
       nitropack:
-        specifier: npm:nitropack@^2.13.4
+        specifier: npm:nitropack@2.13.4
         version: 2.13.4(@electric-sql/pglite@0.5.13)(@parcel/watcher@2.6.0)(drizzle-orm@1.0.0-rc.5(@cloudflare/workers-types@5.20261031.1)(@electric-sql/pglite@0.5.13)(@neondatabase/serverless@1.2.0)(@types/pg@8.23.1)(pg@8.23.1)(postgres@3.4.9)(zod@4.6.5))(oxc-parser@0.151.0)(rolldown@1.2.16)(srvx@1.0.8)(supports-color@10.2.2)(vite@8.3.5)
       nuxt:
         specifier: 'catalog:'
         version: 4.6.0(a69d62c2dedb5ffa456f4245ed9553e9)
       oxfmt:
-        specifier: npm:oxfmt@^0.72.0
+        specifier: npm:oxfmt@0.72.0
         version: 0.72.0
       oxlint:
         specifier: npm:oxlint@^1.87.0
         version: 1.87.0(oxlint-tsgolint@7.0.2003)
       oxlint-tsgolint:
-        specifier: npm:oxlint-tsgolint@~7.0.2003
+        specifier: npm:oxlint-tsgolint@7.0.2003
         version: 7.0.2003
       pg:
         specifier: 'catalog:'
         version: 8.23.1
       playwright-core:
-        specifier: npm:playwright-core@^1.63.0
+        specifier: npm:playwright-core@1.63.0
         version: 1.63.0
       postgres:
-        specifier: ^3.4.9
+        specifier: 3.4.9
         version: 3.4.9
       simple-git-hooks:
-        specifier: npm:simple-git-hooks@^2.14.0
+        specifier: npm:simple-git-hooks@2.14.0
         version: 2.14.0
       typescript:
-        specifier: npm:typescript@^6.0.3
+        specifier: npm:typescript@6.0.3
         version: 6.0.3
       vitest:
         specifier: npm:vitest@^5.0.3
@@ -291,7 +291,7 @@ importers:
         specifier: npm:vue@^3.5.43
         version: 3.5.44(typescript@6.0.3)
       vue-tsc:
-        specifier: npm:vue-tsc@^3.3.12
+        specifier: npm:vue-tsc@3.3.12
         version: 3.3.12(typescript@6.0.3)
 
   docs:
@@ -370,7 +370,7 @@ importers:
         version: 4.6.5
     devDependencies:
       '@golar/vue':
-        specifier: npm:@golar/vue@^0.1.10
+        specifier: npm:@golar/vue@0.1.10
         version: 0.1.10
       '@types/pg':
         specifier: 'catalog:'
@@ -379,10 +379,10 @@ importers:
         specifier: 'catalog:'
         version: 1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@cloudflare/workers-types@5.20261031.1)(@electric-sql/pglite@0.5.13)(@neondatabase/serverless@1.2.0)(@types/pg@8.23.1)(pg@8.23.1)(postgres@3.4.9)(zod@4.6.5))
       golar:
-        specifier: npm:golar@^0.1.10
+        specifier: npm:golar@0.1.10
         version: 0.1.10
       typescript:
-        specifier: npm:typescript@^6.0.3
+        specifier: npm:typescript@6.0.3
         version: 6.0.3
 
   playgrounds/basic:
@@ -410,7 +410,7 @@ importers:
         version: 3.5.44(typescript@6.0.3)
     devDependencies:
       '@golar/vue':
-        specifier: npm:@golar/vue@^0.1.10
+        specifier: npm:@golar/vue@0.1.10
         version: 0.1.10
       '@types/pg':
         specifier: 'catalog:'
@@ -419,7 +419,7 @@ importers:
         specifier: 'catalog:'
         version: 1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@cloudflare/workers-types@5.20261031.1)(@electric-sql/pglite@0.5.13)(@neondatabase/serverless@1.2.0)(@types/pg@8.23.1)(pg@8.23.1)(postgres@3.4.9)(zod@4.6.5))
       golar:
-        specifier: npm:golar@^0.1.10
+        specifier: npm:golar@0.1.10
         version: 0.1.10
 
   playgrounds/nitro:
@@ -444,13 +444,13 @@ importers:
         version: 8.23.1
     devDependencies:
       '@types/node':
-        specifier: npm:@types/node@^24.19.1
+        specifier: npm:@types/node@24.19.1
         version: 24.19.1
       '@types/pg':
         specifier: 'catalog:'
         version: 8.23.1
       typescript:
-        specifier: npm:typescript@^6.0.3
+        specifier: npm:typescript@6.0.3
         version: 6.0.3
       vitest:
         specifier: npm:vitest@^5.0.3
@@ -481,31 +481,31 @@ importers:
         version: 3.5.44(typescript@6.0.3)
     devDependencies:
       '@cloudflare/workers-types':
-        specifier: npm:@cloudflare/workers-types@^5.20261031.1
+        specifier: npm:@cloudflare/workers-types@5.20261031.1
         version: 5.20261031.1
       '@electric-sql/pglite':
         specifier: 'catalog:'
         version: 0.5.13
       '@golar/vue':
-        specifier: npm:@golar/vue@^0.1.10
+        specifier: npm:@golar/vue@0.1.10
         version: 0.1.10
       '@nuxt/test-utils':
         specifier: npm:@nuxt/test-utils@4.3.3
         version: 4.3.3(@nuxt/schema-nightly@5.0.0-2611010234-c709ec8)(@oxc-project/types@0.156.0)(@playwright/test@1.63.0)(@vue/test-utils@2.5.1(@vue/compiler-dom@3.5.44)(@vue/server-renderer@3.5.44)(vue@3.5.44(typescript@6.0.3)))(confbox@0.3.1)(dotenv@17.4.2)(esbuild@0.28.2)(giget@3.3.1)(h3@2.0.8(crossws@0.4.17(srvx@1.0.8))(ocache@0.3.1))(happy-dom@20.14.5)(jiti@2.7.0)(mlly@1.8.2)(nuxt-nightly@5.0.0-2611010234-c709ec8(49dc8c6217596d0bcbb265a9777e3f52))(oxc-parser@0.151.0)(playwright-core@1.63.0)(rolldown@1.2.16)(rollup@4.64.0)(vite@8.3.5)(vitest@5.0.3(@types/node@24.19.1)(happy-dom@20.14.5)(vite@8.3.5))(vue@3.5.44(typescript@6.0.3))
       '@types/node':
-        specifier: npm:@types/node@^24.19.1
+        specifier: npm:@types/node@24.19.1
         version: 24.19.1
       '@types/pg':
         specifier: 'catalog:'
         version: 8.23.1
       golar:
-        specifier: npm:golar@^0.1.10
+        specifier: npm:golar@0.1.10
         version: 0.1.10
       vitest:
         specifier: npm:vitest@^5.0.3
         version: 5.0.3(@types/node@24.19.1)(happy-dom@20.14.5)(vite@8.3.5)
       wrangler:
-        specifier: npm:wrangler@^4.156.0
+        specifier: npm:wrangler@4.156.0
         version: 4.156.0(@cloudflare/workers-types@5.20261031.1)(@types/node@24.19.1)
 
   test/fixtures/basic:
@@ -6547,9 +6547,6 @@ packages:
 
   pkg-types@1.3.1:
     resolution: {integrity: sha512-/Jm5M4RvtBFVkKWRu2BLUTNP8/M2a+UwuAX+ae4770q1qVGtfjG+WTCupoZixokjmHiry8uI+dlY8KXYV5HVVQ==}
-
-  pkg-types@2.3.3:
-    resolution: {integrity: sha512-j/lCFdcppV0JxWpCEITdbDltBxPP6cHT+yNJ6Go2OgoSA9518X847X9z0p6LtA4Nc16+eQzCZjRrWanTGvHJ5w==}
 
   pkg-types@2.4.0:
     resolution: {integrity: sha512-07Fys7iVx0X6TcviMOgogM1Lk33ZyqOezMnU79S+kffWqwolG/5W9V8EgQSeYCIfFTYVgssRbnH630Oa2+soBA==}
@@ -12642,7 +12639,7 @@ snapshots:
       ofetch: 1.5.1
       pathe: 2.0.3
       perfect-debounce: 2.1.0
-      pkg-types: 2.3.3
+      pkg-types: 2.4.0
       scule: 1.3.0
       tinyglobby: 0.2.17
       untyped: 2.0.0
@@ -12753,7 +12750,7 @@ snapshots:
       ohash: 2.0.12
       pathe: 2.0.3
       perfect-debounce: 2.1.0
-      pkg-types: 2.3.3
+      pkg-types: 2.4.0
       rc9: 3.1.0
     optionalDependencies:
       magicast: 0.5.5
@@ -15986,12 +15983,6 @@ snapshots:
     dependencies:
       confbox: 0.1.8
       mlly: 1.8.2
-      pathe: 2.0.3
-
-  pkg-types@2.3.3:
-    dependencies:
-      confbox: 0.3.1
-      exsolve: 1.1.3
       pathe: 2.0.3
 
   pkg-types@2.4.0:
