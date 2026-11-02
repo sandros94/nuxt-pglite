@@ -38,10 +38,10 @@
     "zod": "npm:zod@^4.6.5"
   },
   "devDependencies": {
-    "@golar/vue": "npm:@golar/vue@^0.1.10",
+    "@golar/vue": "npm:@golar/vue@0.1.10",
     "@types/pg": "catalog:",
     "drizzle-kit": "catalog:",
-    "golar": "npm:golar@^0.1.10",
-    "typescript": "npm:typescript@^6.0.3"
+    "golar": "npm:golar@0.1.10",
+    "typescript": "npm:typescript@6.0.3"
   }
 }
