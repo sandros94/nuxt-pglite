@@ -22,9 +22,9 @@
     "vue": "catalog:"
   },
   "devDependencies": {
-    "@golar/vue": "npm:@golar/vue@^0.1.10",
+    "@golar/vue": "npm:@golar/vue@0.1.10",
     "@types/pg": "catalog:",
     "drizzle-kit": "catalog:",
-    "golar": "npm:golar@^0.1.10"
+    "golar": "npm:golar@0.1.10"
   }
 }
