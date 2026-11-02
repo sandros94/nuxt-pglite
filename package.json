@@ -92,7 +92,7 @@
     "nitropack": "npm:nitropack@^2.13.4",
     "nuxt": "catalog:",
     "oxfmt": "npm:oxfmt@^0.72.0",
-    "oxlint": "npm:oxlint@^1.87.0",
+    "oxlint": "npm:oxlint@1.87.0",
     "oxlint-tsgolint": "npm:oxlint-tsgolint@~7.0.2003",
     "pg": "catalog:",
     "playwright-core": "npm:playwright-core@^1.63.0",
