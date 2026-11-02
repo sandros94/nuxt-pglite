@@ -1,4 +1,4 @@
-import { defineEventHandler } from 'nitro/h3'
+import { defineEventHandler } from 'nuxt/server'
 
 import { tables, useDB } from '../utils/db'
 

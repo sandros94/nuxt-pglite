@@ -8,7 +8,6 @@
     "vitest.config.ts",
     "modules/**/*.ts",
     "server/**/*.ts",
-    "test/**/*.ts",
-    "types/**/*.d.ts"
+    "test/**/*.ts"
   ]
 }

@@ -1,6 +1,10 @@
 import { fileURLToPath } from 'node:url'
 
 import { vector } from '@electric-sql/pglite-pgvector'
+// The module's alias rather than `nuxt-pglite/migrations`: the socket loads this
+// file through jiti, and the server bundle through rollup, neither of which can
+// resolve the stub's exports (they point at `.js` files that exist only as `.ts`
+// in the monorepo).
 import { applyMigrations } from '#pglite/migrations'
 
 // Absolute, so that it does not depend on where `nuxt dev` is started from.

@@ -12,7 +12,6 @@
   "dependencies": {
     "@electric-sql/pglite": "catalog:",
     "drizzle-orm": "catalog:",
-    "h3": "npm:h3@^2.0.8",
     "nitro": "catalog:",
     "nuxt-pglite": "workspace:*",
     "pg": "catalog:"

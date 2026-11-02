@@ -1,5 +1,6 @@
-// Relative rather than `nuxt-pglite/core`: in this monorepo the module is
-// stubbed, and its `dist` has no built files for the package exports to reach.
+// Relative rather than `nuxt-pglite/core`: the socket module loads this file
+// through jiti, which cannot resolve the stub's exports (they point at `.js`
+// files that exist only as `.ts` in the monorepo); bundled and vitest files can.
 import { definePGliteConfig } from '../../../src/runtime/core'
 
 /**

@@ -3,9 +3,9 @@ import { dirname, resolve } from 'node:path'
 
 import type { NitroModule } from 'nitro/types'
 
-// Relative rather than `nuxt-pglite/core` and `nuxt-pglite/socket`: in this
-// monorepo the module is stubbed, and its `dist` has no built files for the
-// package exports to reach.
+// Relative rather than `nuxt-pglite/core` and `nuxt-pglite/socket`: Nitro loads
+// this file through jiti, which cannot resolve the stub's exports (they point at
+// `.js` files that exist only as `.ts` in the monorepo); bundled and vitest files can.
 import { createPGliteProvider } from '../../../src/runtime/core'
 import { createPGliteSocketServer } from '../../../src/runtime/socket'
 

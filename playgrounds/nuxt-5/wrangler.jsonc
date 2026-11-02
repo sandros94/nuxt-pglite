@@ -6,7 +6,9 @@
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      "id": "00000000000000000000000000000000"
+      "id": "00000000000000000000000000000000",
+      // The URL `wrangler dev` gives the binding locally, and what Nuxt 4's dev emulation needs to start; in `nuxt dev` the app reads `DATABASE_URL` instead.
+      "localConnectionString": "postgres://postgres:postgres@127.0.0.1:5458/postgres"
     }
   ]
 }

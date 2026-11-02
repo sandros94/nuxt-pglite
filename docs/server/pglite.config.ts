@@ -1,7 +1,8 @@
 import { fileURLToPath } from 'node:url'
 
-// The alias rather than `nuxt-pglite/migrations`: in this monorepo the module
-// is stubbed, and its `dist` has no built files for the package exports to reach.
+// The module's alias rather than `nuxt-pglite/migrations`: the socket loads this
+// file through jiti, which cannot resolve the stub's exports (they point at `.js`
+// files that exist only as `.ts` in the monorepo).
 import { applyMigrations } from '#pglite/migrations'
 
 // The directory Netlify applies on deploy, absolute so that it does not depend

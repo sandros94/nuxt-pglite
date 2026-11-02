@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nuxt-pglite-playground-nuxt-4-cloudflare",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "00000000000000000000000000000000",
+      // The URL `wrangler dev` gives the binding locally, and what Nuxt 4's dev emulation needs to start; in `nuxt dev` the app reads `DATABASE_URL` instead.
+      "localConnectionString": "postgres://postgres:postgres@127.0.0.1:5459/postgres"
+    }
+  ]
+}

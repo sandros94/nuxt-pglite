@@ -1,58 +1,59 @@
 import { drizzle } from 'drizzle-orm/node-postgres'
-import type { H3Event } from 'h3'
-import { onDispose } from 'h3'
-import { Client } from 'pg'
+import type { RequestEvent } from 'nuxt/server'
+import { Client, Pool } from 'pg'
 
 import { relations } from '../database/relations'
 import * as schema from '../database/schema'
 
-let env: Promise<Partial<Cloudflare.Env> | undefined> | undefined
-
-/**
- * The Workers bindings, resolved once per isolate: `cloudflare:workers` is
- * a builtin there and an unresolvable import anywhere else, which is the
- * probe. Only the reference is kept; values are read per request.
- */
-function cloudflareEnv() {
-  return (env ??= import('cloudflare:workers').then(
-    (m) => m.env,
-    () => undefined,
-  ))
-}
-
-async function connectionString() {
-  const url = (await cloudflareEnv())?.HYPERDRIVE?.connectionString ?? process.env.DATABASE_URL
-  if (!url) {
-    throw new Error('No database: neither a HYPERDRIVE binding nor DATABASE_URL is set.')
-  }
-  return url
-}
-
-async function createDB(event: H3Event) {
-  const client = new Client({ connectionString: await connectionString() })
-  await client.connect()
-  // `onDispose` runs once the response is over, inside the request's own
-  // context (handed to `waitUntil` on Workers), so the socket is never
-  // touched from another request.
-  onDispose(event, () => client.end())
+function connect(client: Client | Pool) {
   return drizzle({ client, relations })
 }
 
-export type DB = Awaited<ReturnType<typeof createDB>>
+export type DB = ReturnType<typeof connect>
 
-declare module 'h3' {
-  interface H3EventContext {
+declare module 'nuxt/schema' {
+  interface RequestEventContext {
     db?: Promise<DB>
   }
 }
 
+let pool: DB | undefined
+let env: Promise<Partial<Cloudflare.Env> | undefined> | undefined
+
 /**
- * Drizzle over one `pg.Client` per request, cached on the event: Workers
- * forbid reusing a socket opened by another request, and Hyperdrive does the
- * pooling, so a client is created for each request and never shared.
+ * A client for this request only: Workers refuse a socket opened by another
+ * request, and Hyperdrive pools the connections to the database. Workers
+ * close the socket once the request is over.
  */
-export function useDB(event: H3Event) {
-  return (event.context.db ??= createDB(event))
+async function connectRequest() {
+  // `cloudflare:workers` is a builtin on Workers and unresolvable on Node,
+  // where a `node-server` build reads `DATABASE_URL` instead.
+  env ??= import('cloudflare:workers').then(
+    (m) => m.env,
+    () => undefined,
+  )
+  const url = (await env)?.HYPERDRIVE?.connectionString ?? process.env.DATABASE_URL
+  if (!url) {
+    throw new Error('No database: neither a HYPERDRIVE binding nor DATABASE_URL is set.')
+  }
+  const client = new Client({ connectionString: url })
+  await client.connect()
+  return connect(client)
+}
+
+/**
+ * Drizzle over a pool on `DATABASE_URL` in development (the socket's, unless
+ * already set), and over a client per request, cached on the event, in production.
+ */
+export async function useDB(event: Pick<RequestEvent, 'context'>): Promise<DB> {
+  if (import.meta.dev) {
+    const url = process.env.DATABASE_URL
+    if (!url) {
+      throw new Error('No database: DATABASE_URL is not set.')
+    }
+    return (pool ??= connect(new Pool({ connectionString: url })))
+  }
+  return (event.context.db ??= connectRequest())
 }
 
 export const tables = schema

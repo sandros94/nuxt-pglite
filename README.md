@@ -71,7 +71,7 @@ Guides, recipes and the reference live at **[nuxt-pglite.s94.dev](https://nuxt-p
 - [DevTools →](https://nuxt-pglite.s94.dev/guide/devtools)
 - [Migrations →](https://nuxt-pglite.s94.dev/recipes/migrations)
 - [Testing →](https://nuxt-pglite.s94.dev/recipes/testing)
-- [Deploy →](https://nuxt-pglite.s94.dev/recipes/deploy) — any Postgres, Netlify Database, Neon.
+- [Deploy →](https://nuxt-pglite.s94.dev/recipes/deploy) — any Postgres, Netlify Database, Neon, Cloudflare Hyperdrive.
 - [Reference →](https://nuxt-pglite.s94.dev/reference/config-files) — config files, module and socket options, exports, hooks, environment.
 
 ## Development
