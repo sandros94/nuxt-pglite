@@ -20,6 +20,6 @@
     "@types/node": "npm:@types/node@24.19.2",
     "@types/pg": "catalog:",
     "typescript": "npm:typescript@6.0.3",
-    "vitest": "npm:vitest@5.0.3"
+    "vitest": "npm:vitest@5.1.0"
   }
 }

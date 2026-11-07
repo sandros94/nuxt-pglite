@@ -99,7 +99,7 @@
     "postgres": "3.4.9",
     "simple-git-hooks": "npm:simple-git-hooks@2.14.0",
     "typescript": "npm:typescript@6.0.3",
-    "vitest": "npm:vitest@5.0.3",
+    "vitest": "npm:vitest@5.1.0",
     "vue": "npm:vue@3.5.44",
     "vue-tsc": "npm:vue-tsc@3.3.14"
   },
