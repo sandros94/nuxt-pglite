@@ -13,20 +13,20 @@
   },
   "dependencies": {
     "drizzle-orm": "catalog:",
-    "nuxt": "npm:nuxt-nightly@5.0.0-2611010234-c709ec8",
+    "nuxt": "npm:nuxt-nightly@5.0.0-2611052317-a04317f",
     "nuxt-pglite": "workspace:*",
     "pg": "catalog:",
     "vue": "catalog:"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "npm:@cloudflare/workers-types@5.20261101.1",
+    "@cloudflare/workers-types": "npm:@cloudflare/workers-types@5.20261106.1",
     "@electric-sql/pglite": "catalog:",
-    "@golar/vue": "npm:@golar/vue@0.1.10",
+    "@golar/vue": "npm:@golar/vue@0.1.11",
     "@nuxt/test-utils": "npm:@nuxt/test-utils@4.3.4",
     "@types/node": "npm:@types/node@24.19.2",
     "@types/pg": "catalog:",
-    "golar": "npm:golar@0.1.10",
+    "golar": "npm:golar@0.1.11",
     "vitest": "npm:vitest@5.0.3",
-    "wrangler": "npm:wrangler@4.156.0"
+    "wrangler": "npm:wrangler@4.158.0"
   }
 }
