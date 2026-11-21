@@ -26,7 +26,7 @@
     "@takumi-rs/core": "npm:@takumi-rs/core@^2.14.0",
     "@vueuse/core": "npm:@vueuse/core@^14.4.0",
     "drizzle-orm": "catalog:",
-    "minimark": "npm:minimark@^0.2.0",
+    "minimark": "npm:minimark@^1.0.0",
     "nuxt": "catalog:",
     "nuxt-llms": "npm:nuxt-llms@0.3.1",
     "nuxt-og-image": "npm:nuxt-og-image@^6.10.3",
