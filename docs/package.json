@@ -24,7 +24,7 @@
     "@nuxtjs/mcp-toolkit": "npm:@nuxtjs/mcp-toolkit@^0.24.0",
     "@nuxtjs/mdc": "npm:@nuxtjs/mdc@^0.23.2",
     "@takumi-rs/core": "npm:@takumi-rs/core@^2.14.0",
-    "@vueuse/core": "npm:@vueuse/core@^14.4.0",
+    "@vueuse/core": "npm:@vueuse/core@^15.0.0",
     "drizzle-orm": "catalog:",
     "minimark": "npm:minimark@^0.2.0",
     "nuxt": "catalog:",
